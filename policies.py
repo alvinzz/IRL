@@ -11,9 +11,9 @@ class GaussianMLPPolicy:
         name,
         ob_dim,
         action_dim,
-        learn_var=True,
-        var_network=False, # affine fn if learn_var=True else constant var=1
-        value_network=False, # else affine fn
+        learn_var=True, # else use a constant variance of 1
+        var_network=False, # NN if true, else affine fn
+        value_network=False, # NN if true, else affine fn
         out_activation=None,
         hidden_dims=[32, 32],
         hidden_activation=tf.nn.relu,
