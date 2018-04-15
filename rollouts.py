@@ -40,7 +40,6 @@ def collect_and_process_rollouts(
         obs, next_obs, actions, action_probs, value_targets, advantages = obs+ep_obs, next_obs+ep_next_obs, actions+ep_actions, action_probs+ep_action_probs, value_targets+ep_value_targets, advantages+ep_advantages
         avg_reward += sum(ep_rewards)
         n_eps += 1
-        print('finished episode')
     print('avg_ep_reward:', avg_reward / n_eps)
 
     # convert to numpy
