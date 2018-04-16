@@ -31,7 +31,7 @@ class AIRL:
     def train(self, n_iters, max_timesteps, max_ep_len, reward_fn=env_reward_fn):
         for iter_ in range(n_iters):
             obs, next_obs, actions, action_probs, values, value_targets, advantages = collect_and_process_rollouts(self.env_fn, self.policy, reward_fn, self.sess, max_timesteps, max_ep_len)
-            self.policy.optimizer.train(obs, actions, action_probs, values, value_targets, advantages, self.sess),
+            self.policy.optimizer.train(obs, next_obs, actions, action_probs, values, value_targets, advantages, self.sess)
             if self.expert_obs is not None:
                 self.discriminator.train(
                     self.expert_obs, self.expert_next_obs, self.expert_actions,

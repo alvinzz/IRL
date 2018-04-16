@@ -10,9 +10,7 @@ class GaussianMLPPolicy:
         name,
         ob_dim,
         action_dim,
-        learn_var=True, # else use a constant variance of 1
-        var_network=False, # NN if true, else affine fn
-        value_network=False, # NN if true, else affine fn
+        var_network=False, # NN if true, else trainable params indep of obs
         out_activation=None,
         hidden_dims=[32, 32],
         hidden_activation=tf.nn.relu,
@@ -26,23 +24,17 @@ class GaussianMLPPolicy:
             # policy net
             self.mean_network = MLP('means', ob_dim, action_dim, out_activation=out_activation, hidden_dims=hidden_dims, hidden_activation=hidden_activation, weight_init=weight_init, bias_init=bias_init, in_layer=self.obs)
 
-            if not learn_var:
-                self.log_var = tf.get_variable('log_vars', shape=[1, action_dim], initializer=tf.zeros_initializer())
+            if var_network:
+                self.log_var_network = MLP('log_vars', ob_dim, action_dim, out_activation=out_activation, hidden_dims=hidden_dims, hidden_activation=hidden_activation, weight_init=weight_init, bias_init=bias_init, in_layer=self.obs)
+                self.log_var = self.log_var_network.layers['out']
             else:
-                if var_network:
-                    self.log_var_network = MLP('log_vars', ob_dim, action_dim, out_activation=out_activation, hidden_dims=hidden_dims, hidden_activation=hidden_activation, weight_init=weight_init, bias_init=bias_init, in_layer=self.obs)
-                    self.log_var = self.log_var_network.layers['out']
-                else:
-                    self.log_var_network = MLP('log_vars', ob_dim, action_dim, out_activation=out_activation, hidden_dims=[], hidden_activation=hidden_activation, weight_init=weight_init, bias_init=bias_init, in_layer=self.obs)
-                    self.log_var = self.log_var_network.layers['out']
+                self.log_var_network = MLP('log_vars', ob_dim, action_dim, out_activation=out_activation, hidden_dims=[], hidden_activation=hidden_activation, weight_init=weight_init, bias_init=bias_init, in_layer=self.obs)
+                self.log_var = self.log_var_network.layers['out']
 
             self.distribution = DiagGaussian(self.mean_network.layers['out'], self.log_var)
 
             # value net
-            if value_network:
-                self.value_network = MLP('values', ob_dim, action_dim, out_activation=out_activation, hidden_dims=hidden_dims, hidden_activation=hidden_activation, weight_init=weight_init, bias_init=bias_init, in_layer=self.obs)
-            else:
-                self.value_network = MLP('values', ob_dim, action_dim, out_activation=out_activation, hidden_dims=[], hidden_activation=hidden_activation, weight_init=weight_init, bias_init=bias_init, in_layer=self.obs)
+            self.value_network = MLP('values', ob_dim, action_dim, out_activation=out_activation, hidden_dims=hidden_dims, hidden_activation=hidden_activation, weight_init=weight_init, bias_init=bias_init, in_layer=self.obs)
             self.value = self.value_network.layers['out']
 
             # training, PPO for now

@@ -1,7 +1,7 @@
 import tensorflow as tf
 import numpy as np
 from networks import MLP
-from utils import minibatch
+from utils import sample_minibatch
 
 class AIRLDiscriminator:
     def __init__(
@@ -63,8 +63,8 @@ class AIRLDiscriminator:
             labels = np.concatenate((np.ones((batch_size, 1)), np.zeros((batch_size, 1))))
 
             for iter_ in range(n_iters):
-                mb_expert_obs, mb_expert_next_obs, mb_expert_action_probs_under_policy = minibatch(expert_obs, expert_next_obs, expert_action_probs_under_policy, batch_size)
-                mb_policy_obs, mb_policy_next_obs, mb_policy_action_probs = minibatch(policy_obs, policy_next_obs, policy_action_probs, batch_size)
+                mb_expert_obs, mb_expert_next_obs, mb_expert_action_probs_under_policy = sample_minibatch(expert_obs, expert_next_obs, expert_action_probs_under_policy, batch_size)
+                mb_policy_obs, mb_policy_next_obs, mb_policy_action_probs = sample_minibatch(policy_obs, policy_next_obs, policy_action_probs, batch_size)
                 mb_obs = np.concatenate((mb_expert_obs, mb_policy_obs))
                 mb_next_obs = np.concatenate((mb_expert_next_obs, mb_policy_next_obs))
                 mb_policy_action_probs = np.concatenate((mb_expert_action_probs_under_policy, mb_policy_action_probs))
