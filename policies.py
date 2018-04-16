@@ -1,9 +1,8 @@
 import tensorflow as tf
 import numpy as np
-from rollouts import collect_and_process_rollouts
 from distributions import DiagGaussian
 from networks import MLP
-from rewards import make_AIRL_reward_fn, env_reward_fn
+from optimizers import ClipPPO
 
 class GaussianMLPPolicy:
     def __init__(
@@ -19,7 +18,7 @@ class GaussianMLPPolicy:
         hidden_activation=tf.nn.relu,
         weight_init=tf.contrib.layers.xavier_initializer,
         bias_init=tf.zeros_initializer,
-        learning_rate=1e-3
+        optimizer=ClipPPO
     ):
         with tf.variable_scope(name):
             self.obs = tf.placeholder(tf.float32, shape=[None, ob_dim], name='obs')
@@ -47,31 +46,7 @@ class GaussianMLPPolicy:
             self.value = self.value_network.layers['out']
 
             # training, PPO for now
-            # policy gradient with clipping
-            self.actions = tf.placeholder(tf.float32, shape=[None, action_dim], name='actions')
-            self.advantages = tf.placeholder(tf.float32, shape=[None, 1], name='advantages')
-            self.action_log_probs = self.distribution.log_prob(self.actions)
-            self.old_action_probs = tf.placeholder(tf.float32, shape=[None, 1], name='old_action_probs')
-
-            self.action_prob_ratio = tf.exp(self.action_log_probs) / self.old_action_probs
-            self.policy_loss = -self.action_prob_ratio * self.advantages
-            self.clipped_policy_loss = -tf.clip_by_value(self.action_prob_ratio, 0.8, 1.2) * self.advantages
-            self.surr_loss = tf.reduce_mean(tf.maximum(self.policy_loss, self.clipped_policy_loss))
-
-            self.params = tf.trainable_variables()
-            self.policy_grads = tf.gradients(self.surr_loss, self.params)
-            self.policy_grads, _ = tf.clip_by_global_norm(self.policy_grads, 0.5)
-            self.policy_grads = list(zip(self.policy_grads, self.params))
-            self.policy_optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate, epsilon=1e-5)
-            self.policy_train_op = self.policy_optimizer.apply_gradients(self.policy_grads)
-
-            # train value fn
-            self.value_targets = tf.placeholder(tf.float32, shape=[None, 1], name='value_targets')
-            self.value_loss = tf.reduce_mean(tf.square(self.value_targets - self.value))
-            self.value_optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
-            self.value_train_op = self.value_optimizer.minimize(self.value_loss)
-
-            self.train_op = (self.policy_train_op, self.value_train_op)
+            self.optimizer = optimizer(ob_dim, action_dim, self)
 
     def act(self, obs, global_session):
         action = global_session.run(

@@ -68,12 +68,12 @@ def collect_and_process_rollouts(
         start_ind += ep_len
 
     # convert to numpy
-    obs, next_obs, actions, action_probs, value_targets, advantages = np.array(obs), np.array(next_obs), np.array(actions), np.expand_dims(action_probs, axis=1), np.array(value_targets), np.array(advantages)
+    obs, next_obs, actions, action_probs, value_targets, values, advantages = np.array(obs), np.array(next_obs), np.array(actions), np.expand_dims(action_probs, axis=1), np.expand_dims(values, axis=1), np.array(value_targets), np.array(advantages)
 
     # normalize advantages
     advantages = (advantages - np.mean(advantages)) / (np.std(advantages) + 1e-8)
 
-    return obs, next_obs, actions, action_probs, value_targets, advantages
+    return obs, next_obs, actions, action_probs, values, value_targets, advantages
 
 def get_value_targets_and_advantages(rewards, values,
         discount=0.99, gae_lambda=0.98):
