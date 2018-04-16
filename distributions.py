@@ -21,8 +21,7 @@ class DiagGaussian:
 
     def sample(self):
         actions = self.means + self.vars * tf.random_normal(tf.shape(self.means))
-        probs = tf.exp(self.log_prob(actions))
-        return actions, probs
+        return actions
 
     def kl(self, other):
         assert isinstance(other, DiagGaussian)

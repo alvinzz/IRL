@@ -74,8 +74,15 @@ class GaussianMLPPolicy:
             self.train_op = (self.policy_train_op, self.value_train_op)
 
     def act(self, obs, global_session):
-        (action, action_prob), value, entropy = global_session.run(
-            [self.distribution.sample(), self.value, self.distribution.entropy()],
+        action = global_session.run(
+            self.distribution.sample(),
             feed_dict={self.obs: obs}
         )
-        return action, action_prob, value, entropy
+        return action
+
+    def rollout_data(self, obs, actions, global_session):
+        action_probs, values, entropies = global_session.run(
+            [tf.exp(self.distribution.log_prob(actions)), self.value, self.distribution.entropy()],
+            feed_dict={self.obs: obs}
+        )
+        return action_probs, values, entropies

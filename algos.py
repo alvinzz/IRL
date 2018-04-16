@@ -30,7 +30,7 @@ class AIRL:
 
     def train(self, n_iters, max_timesteps, max_ep_len, reward_fn=env_reward_fn, n_policy_gd_steps=4):
         for iter_ in range(n_iters):
-            obs, next_obs, actions, action_probs, value_targets, advantages = collect_and_process_rollouts(self.env_fn(), self.policy, reward_fn, self.sess, max_timesteps, max_ep_len)
+            obs, next_obs, actions, action_probs, value_targets, advantages = collect_and_process_rollouts(self.env_fn, self.policy, reward_fn, self.sess, max_timesteps, max_ep_len)
             for _  in range(n_policy_gd_steps):
                 self.sess.run(self.policy.train_op, feed_dict={self.policy.obs: obs, self.policy.actions: actions, self.policy.old_action_log_probs: action_probs, self.policy.value_targets: value_targets, self.policy.advantages: advantages})
             if self.expert_obs is not None:
