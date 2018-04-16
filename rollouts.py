@@ -30,6 +30,7 @@ def collect_and_process_rollouts(
                 actions_vec[n].append(action)
                 env_rewards_vec[n].append(env_reward)
                 if done:
+                    env_vec.pop(n)
                     ep_obs = obs_vec.pop(n)[:-1]
                     ep_lens.append(len(ep_obs))
                     obs.extend(ep_obs)
@@ -38,6 +39,7 @@ def collect_and_process_rollouts(
                     env_rewards.extend(env_rewards_vec.pop(n))
                     n_envs -= 1
         for n in reversed(range(n_envs)):
+            env_vec.pop(n)
             ep_obs = obs_vec.pop(n)[:-1]
             ep_lens.append(len(ep_obs))
             obs.extend(ep_obs)

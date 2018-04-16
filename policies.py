@@ -51,9 +51,9 @@ class GaussianMLPPolicy:
             self.actions = tf.placeholder(tf.float32, shape=[None, action_dim], name='actions')
             self.advantages = tf.placeholder(tf.float32, shape=[None, 1], name='advantages')
             self.action_log_probs = self.distribution.log_prob(self.actions)
-            self.old_action_log_probs = tf.placeholder(tf.float32, shape=[None, 1], name='old_action_log_probs')
+            self.old_action_probs = tf.placeholder(tf.float32, shape=[None, 1], name='old_action_probs')
 
-            self.action_prob_ratio = tf.exp(self.action_log_probs - self.old_action_log_probs)
+            self.action_prob_ratio = tf.exp(self.action_log_probs) / self.old_action_probs
             self.policy_loss = -self.action_prob_ratio * self.advantages
             self.clipped_policy_loss = -tf.clip_by_value(self.action_prob_ratio, 0.8, 1.2) * self.advantages
             self.surr_loss = tf.reduce_mean(tf.maximum(self.policy_loss, self.clipped_policy_loss))
@@ -68,7 +68,7 @@ class GaussianMLPPolicy:
             # train value fn
             self.value_targets = tf.placeholder(tf.float32, shape=[None, 1], name='value_targets')
             self.value_loss = tf.reduce_mean(tf.square(self.value_targets - self.value))
-            self.value_optimizer = tf.train.AdamOptimizer(learning_rate=0.01)
+            self.value_optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
             self.value_train_op = self.value_optimizer.minimize(self.value_loss)
 
             self.train_op = (self.policy_train_op, self.value_train_op)
