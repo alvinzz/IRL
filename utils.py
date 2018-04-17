@@ -4,9 +4,9 @@ def sample_minibatch(obs, next_obs, action_probs, batch_size):
     random_indices = np.random.randint(0, obs.shape[0], size=batch_size)
     return obs[random_indices], next_obs[random_indices], action_probs[random_indices]
 
-def batchify(data, n_batches):
+def batchify(data, batch_size):
     N = data[0].shape[0]
-    batch_size = int(np.ceil(N / n_batches))
+    # batch_size = int(np.ceil(N / n_batches))
     res = []
     random_inds = np.arange(N)
     np.random.shuffle(random_inds)

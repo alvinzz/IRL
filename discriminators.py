@@ -9,11 +9,11 @@ class AIRLDiscriminator:
         name,
         ob_dim,
         out_activation=None,
-        hidden_dims=[32, 32],
-        hidden_activation=tf.nn.relu,
+        hidden_dims=[64, 64],
+        hidden_activation=tf.nn.tanh,
         weight_init=tf.contrib.layers.xavier_initializer,
         bias_init=tf.zeros_initializer,
-        discount=0.99,
+        discount=0.995,
         learning_rate=1e-3
     ):
         with tf.variable_scope(name):
@@ -55,7 +55,7 @@ class AIRLDiscriminator:
             n_iters=100, batch_size=32
         ):
             expert_action_probs_under_policy = global_session.run(
-                tf.exp(policy.distribution.log_prob(expert_actions)),
+                policy.action_probs,
                 feed_dict={policy.obs: expert_obs}
             )
             expert_action_probs_under_policy = np.expand_dims(expert_action_probs_under_policy, axis=1)

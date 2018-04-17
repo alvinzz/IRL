@@ -4,6 +4,8 @@ from distributions import DiagGaussian
 from networks import MLP
 from optimizers import ClipPPO
 
+import time
+
 class GaussianMLPPolicy:
     def __init__(
         self,
@@ -12,8 +14,8 @@ class GaussianMLPPolicy:
         action_dim,
         var_network=False, # NN if true, else trainable params indep of obs
         out_activation=None,
-        hidden_dims=[32, 32],
-        hidden_activation=tf.nn.relu,
+        hidden_dims=[64, 64],
+        hidden_activation=tf.nn.tanh,
         weight_init=tf.contrib.layers.xavier_initializer,
         bias_init=tf.zeros_initializer,
         optimizer=ClipPPO
@@ -23,33 +25,39 @@ class GaussianMLPPolicy:
 
             # policy net
             self.mean_network = MLP('means', ob_dim, action_dim, out_activation=out_activation, hidden_dims=hidden_dims, hidden_activation=hidden_activation, weight_init=weight_init, bias_init=bias_init, in_layer=self.obs)
+            self.means = self.mean_network.layers['out']
 
             if var_network:
                 self.log_var_network = MLP('log_vars', ob_dim, action_dim, out_activation=out_activation, hidden_dims=hidden_dims, hidden_activation=hidden_activation, weight_init=weight_init, bias_init=bias_init, in_layer=self.obs)
-                self.log_var = self.log_var_network.layers['out']
+                self.log_vars = self.log_var_network.layers['out']
             else:
                 self.log_var_network = MLP('log_vars', ob_dim, action_dim, out_activation=out_activation, hidden_dims=[], hidden_activation=hidden_activation, weight_init=weight_init, bias_init=bias_init, in_layer=self.obs)
-                self.log_var = self.log_var_network.layers['out']
+                self.log_vars = self.log_var_network.layers['out']
 
-            self.distribution = DiagGaussian(self.mean_network.layers['out'], self.log_var)
+            self.distribution = DiagGaussian(self.means, self.log_vars)
+            self.sampled_actions = self.distribution.sample()
+
+            self.actions = tf.placeholder(tf.float32, shape=[None, action_dim], name='actions')
+            self.action_probs = tf.exp(self.distribution.log_prob(self.actions))
+            self.entropies = self.distribution.entropy()
 
             # value net
-            self.value_network = MLP('values', ob_dim, action_dim, out_activation=out_activation, hidden_dims=hidden_dims, hidden_activation=hidden_activation, weight_init=weight_init, bias_init=bias_init, in_layer=self.obs)
-            self.value = self.value_network.layers['out']
+            self.value_network = MLP('values', ob_dim, 1, out_activation=out_activation, hidden_dims=hidden_dims, hidden_activation=hidden_activation, weight_init=weight_init, bias_init=bias_init, in_layer=self.obs)
+            self.values = self.value_network.layers['out']
 
             # training, PPO for now
             self.optimizer = optimizer(ob_dim, action_dim, self)
 
     def act(self, obs, global_session):
-        action = global_session.run(
-            self.distribution.sample(),
+        actions = global_session.run(
+            self.sampled_actions,
             feed_dict={self.obs: obs}
         )
-        return action
+        return actions
 
     def rollout_data(self, obs, actions, global_session):
         action_probs, values, entropies = global_session.run(
-            [tf.exp(self.distribution.log_prob(actions)), self.value, self.distribution.entropy()],
-            feed_dict={self.obs: obs}
+            [self.action_probs, self.values, self.entropies],
+            feed_dict={self.obs: obs, self.actions: actions}
         )
         return action_probs, values, entropies

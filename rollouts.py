@@ -3,7 +3,7 @@ import numpy as np
 def collect_and_process_rollouts(
         env_fn, policy, reward_fn, global_session,
         n_timesteps=10000, max_ep_len=500,
-        discount=0.99, gae_lambda=0.98
+        discount=0.995, gae_lambda=0.97
     ):
     # collect data and perform single-episode preprocessing
     obs, next_obs, actions, env_rewards = [], [], [], []
@@ -76,7 +76,7 @@ def collect_and_process_rollouts(
     return obs, next_obs, actions, action_probs, values, value_targets, advantages
 
 def get_value_targets_and_advantages(rewards, values,
-        discount=0.99, gae_lambda=0.98):
+        discount=0.995, gae_lambda=0.97):
     rollout_len = rewards.shape[0]
     value_targets = [[0] for _ in range(rollout_len)]
     advantages = [[0] for _ in range(rollout_len)]
