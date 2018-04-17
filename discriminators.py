@@ -56,7 +56,7 @@ class AIRLDiscriminator:
         ):
             expert_action_probs_under_policy = global_session.run(
                 policy.action_probs,
-                feed_dict={policy.obs: expert_obs}
+                feed_dict={policy.obs: expert_obs, policy.actions: expert_actions}
             )
             expert_action_probs_under_policy = np.expand_dims(expert_action_probs_under_policy, axis=1)
 

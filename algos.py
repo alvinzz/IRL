@@ -7,13 +7,13 @@ from rewards import env_reward_fn
 class AIRL:
     def __init__(self,
         name,
-        env_fn, ob_dim, action_dim,
+        env_fn,
         expert_obs, expert_next_obs, expert_actions
     ):
         with tf.variable_scope(name):
             self.env_fn = env_fn
-            self.ob_dim = ob_dim
-            self.action_dim = action_dim
+            self.ob_dim = env_fn().observation_space.shape[0]
+            self.action_dim = env_fn().action_space.shape[0]
 
             self.expert_obs = expert_obs
             self.expert_next_obs = expert_next_obs
@@ -23,6 +23,8 @@ class AIRL:
             if self.expert_obs is not None: # train expert only
                 self.discriminator = AIRLDiscriminator('discriminator', self.ob_dim)
 
+            self.saver = tf.train.Saver()
+            
             config = tf.ConfigProto()
             config.gpu_options.allow_growth=True
             self.sess = tf.Session(config=config)

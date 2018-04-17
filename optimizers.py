@@ -48,8 +48,6 @@ class ClipPPO:
             [self.surr_policy_loss, self.value_loss],
             feed_dict={self.obs: obs, self.actions: actions, self.old_action_probs: action_probs, self.value_targets: value_targets, self.advantages: advantages}
         )
-        print('old_pol_loss:', pol_loss)
-        print('old_val_loss:', val_loss)
         data = [obs, actions, action_probs, value_targets, advantages]
         for iter_ in range(n_iters):
             batched_data = batchify(data, batch_size)
@@ -63,5 +61,3 @@ class ClipPPO:
             [self.surr_policy_loss, self.value_loss],
             feed_dict={self.obs: obs, self.actions: actions, self.old_action_probs: action_probs, self.value_targets: value_targets, self.advantages: advantages}
         )
-        print('new_pol_loss:', pol_loss)
-        print('new_val_loss:', val_loss)
