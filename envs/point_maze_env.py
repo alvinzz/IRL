@@ -71,4 +71,3 @@ class PointMazeEnv(mujoco_env.MujocoEnv, utils.EzPickle):
         logger.record_tabular('AvgObjectToGoalDist', -np.mean(rew_dist.mean()))
         logger.record_tabular('AvgControlCost', -np.mean(rew_ctrl.mean()))
         logger.record_tabular('AvgMinToGoalDist', np.mean(np.min(-rew_dist, axis=1)))
-
