@@ -10,7 +10,7 @@ class DiagGaussian:
         # means, stds are TF tensors of size (N, dim)
         self.means = means
         self.log_vars = log_vars
-        self.log_stds = log_vars / 2
+        self.log_stds = log_vars / 2.
         self.stds = tf.exp(self.log_stds)
         self.dim = tf.to_float(tf.shape(self.means)[-1])
 

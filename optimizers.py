@@ -1,5 +1,6 @@
 import tensorflow as tf
-from utils import batchify
+import numpy as np
+from utils import batchify, threshold
 
 class ClipPPO:
     def __init__(self,
@@ -9,7 +10,8 @@ class ClipPPO:
     ):
         self.optimizer = optimizer(learning_rate=learning_rate, epsilon=optimizer_epsilon)
 
-        self.old_action_probs = tf.placeholder(tf.float32, shape=[None, 1], name='old_action_probs')
+        self.old_action_log_probs = tf.placeholder(tf.float32, shape=[None, 1], name='old_action_log_probs')
+        self.old_values = tf.placeholder(tf.float32, shape=[None, 1], name='old_values')
         self.value_targets = tf.placeholder(tf.float32, shape=[None, 1], name='value_targets')
         self.advantages = tf.placeholder(tf.float32, shape=[None, 1], name='advantages')
 
@@ -17,20 +19,25 @@ class ClipPPO:
         self.obs = self.policy.obs
         self.distribution = self.policy.distribution
         self.actions = self.policy.actions
-        self.action_probs = self.policy.action_probs
+        self.action_log_probs = self.policy.action_log_probs
         self.values = self.policy.values
 
         # clipped policy loss
-        self.action_prob_ratio = tf.expand_dims(self.action_probs, axis=1) / self.old_action_probs
+        self.action_prob_ratio = tf.exp(tf.expand_dims(self.action_log_probs, axis=1) - self.old_action_log_probs)
         self.policy_loss = -self.action_prob_ratio * self.advantages
         self.clipped_policy_loss = -tf.clip_by_value(self.action_prob_ratio, 1-clip_param, 1+clip_param) * self.advantages
         self.surr_policy_loss = tf.reduce_mean(tf.maximum(self.policy_loss, self.clipped_policy_loss))
 
         # value loss
-        self.value_loss = tf.reduce_mean(tf.square(self.value_targets - self.values))
+        self.value_loss = tf.square(self.value_targets - self.values)
+        self.clipped_value_loss = tf.square(
+            self.value_targets - (self.old_values + tf.clip_by_value(self.values - self.old_values, -clip_param, clip_param))
+        )
+        # self.surr_value_loss = 0.5 * tf.reduce_mean(tf.maximum(self.value_loss, self.clipped_value_loss))
+        self.surr_value_loss = 0.5 * tf.reduce_mean(self.value_loss)
 
         # total loss
-        self.loss = self.surr_policy_loss + self.value_loss
+        self.loss = self.surr_policy_loss + self.surr_value_loss
 
         # gradients
         self.params = tf.trainable_variables()
@@ -40,24 +47,38 @@ class ClipPPO:
         self.train_op = self.optimizer.apply_gradients(self.grads)
 
     def train(self,
-        obs, next_obs, actions, action_probs, values, value_targets, advantages,
+        obs, next_obs, actions, action_log_probs, values, value_targets, advantages,
         global_session,
         n_iters=10, batch_size=64
     ):
-        pol_loss, val_loss = global_session.run(
-            [self.surr_policy_loss, self.value_loss],
-            feed_dict={self.obs: obs, self.actions: actions, self.old_action_probs: action_probs, self.value_targets: value_targets, self.advantages: advantages}
-        )
-        data = [obs, actions, action_probs, value_targets, advantages]
+        # pol_loss, val_loss, = global_session.run(
+        #     [self.surr_policy_loss, self.surr_value_loss],
+        #     feed_dict={self.obs: obs, self.actions: actions, self.old_action_log_probs: action_log_probs, self.old_values: values, self.value_targets: value_targets, self.advantages: (advantages - np.mean(advantages)) / (np.std(advantages) + 1e-8)}
+        # )
+        # print('old_pol_loss:', pol_loss)
+        # print('old_val_loss:', val_loss)
+        data = [obs, actions, action_log_probs, values, value_targets, advantages]
         for iter_ in range(n_iters):
             batched_data = batchify(data, batch_size)
             for minibatch in batched_data:
-                mb_obs, mb_actions, mb_action_probs, mb_value_targets, mb_advantages = minibatch
-                global_session.run(
-                    self.train_op,
-                    feed_dict={self.obs: mb_obs, self.actions: mb_actions, self.old_action_probs: mb_action_probs, self.value_targets: mb_value_targets, self.advantages: mb_advantages}
+                mb_obs, mb_actions, mb_action_log_probs, mb_values, mb_value_targets, mb_advantages = minibatch
+                # normalize advantages here
+                mb_advantages = (mb_advantages - np.mean(mb_advantages)) / (np.std(mb_advantages) + 1e-8)
+                fed = {self.obs: mb_obs, self.actions: mb_actions, self.old_action_log_probs: mb_action_log_probs, self.old_values: mb_values, self.value_targets: mb_value_targets, self.advantages: mb_advantages}
+                grads, aprobratio, pol_loss, _ = global_session.run(
+                    [self.grads, self.action_prob_ratio, self.surr_policy_loss, self.train_op],
+                    feed_dict={self.obs: mb_obs, self.actions: mb_actions, self.old_action_log_probs: mb_action_log_probs, self.old_values: mb_values, self.value_targets: mb_value_targets, self.advantages: mb_advantages}
                 )
-        pol_loss, val_loss = global_session.run(
-            [self.surr_policy_loss, self.value_loss],
-            feed_dict={self.obs: obs, self.actions: actions, self.old_action_probs: action_probs, self.value_targets: value_targets, self.advantages: advantages}
-        )
+                for grad in grads:
+                    for g in grad:
+                        if g.size != np.sum(np.isfinite(g)):
+                            print('NAN IN GRADS')
+                            print(fed)
+                            print(aprobratio, pol_loss)
+                            raise Exception
+        # pol_loss, val_loss = global_session.run(
+        #     [self.surr_policy_loss, self.surr_value_loss],
+        #     feed_dict={self.obs: obs, self.actions: actions, self.old_action_log_probs: action_log_probs, self.old_values: values, self.value_targets: value_targets, self.advantages: (advantages - np.mean(advantages)) / (np.std(advantages) + 1e-8)}
+        # )
+        # print('new_pol_loss:', pol_loss)
+        # print('new_val_loss:', val_loss)

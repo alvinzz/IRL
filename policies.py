@@ -38,7 +38,7 @@ class GaussianMLPPolicy:
             self.sampled_actions = self.distribution.sample()
 
             self.actions = tf.placeholder(tf.float32, shape=[None, action_dim], name='actions')
-            self.action_probs = tf.exp(self.distribution.log_prob(self.actions))
+            self.action_log_probs = self.distribution.log_prob(self.actions)
             self.entropies = self.distribution.entropy()
 
             # value net
@@ -56,8 +56,8 @@ class GaussianMLPPolicy:
         return actions
 
     def rollout_data(self, obs, actions, global_session):
-        action_probs, values, entropies = global_session.run(
-            [self.action_probs, self.values, self.entropies],
+        action_log_probs, values, entropies = global_session.run(
+            [self.action_log_probs, self.values, self.entropies],
             feed_dict={self.obs: obs, self.actions: actions}
         )
-        return action_probs, values, entropies
+        return action_log_probs, values, entropies
