@@ -70,7 +70,12 @@ class AIRLDiscriminator:
                 mb_obs = np.concatenate((mb_expert_obs, mb_policy_obs))
                 mb_next_obs = np.concatenate((mb_expert_next_obs, mb_policy_next_obs))
                 mb_policy_action_log_probs = np.concatenate((mb_expert_action_log_probs_under_policy, mb_policy_action_log_probs))
-                _, loss = global_session.run(
-                    [self.train_op, self.loss],
+                global_session.run(
+                    self.train_op,
                     feed_dict={self.obs: mb_obs, self.next_obs: mb_next_obs, self.policy_action_log_probs: mb_policy_action_log_probs, self.labels: labels}
                 )
+            loss = global_session.run(
+                self.loss,
+                feed_dict={self.obs: mb_obs, self.next_obs: mb_next_obs, self.policy_action_log_probs: mb_policy_action_log_probs, self.labels: labels}
+            )
+            print('discrim_loss:', loss)

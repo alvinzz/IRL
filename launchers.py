@@ -6,38 +6,36 @@ import tensorflow as tf
 import numpy as np
 import pickle
 
-def collect_hc_data(save_dir='data/halfcheetah', checkpoint=None):
-    env_fn = lambda: gym.make('HalfCheetah-v2')
-    model = AIRL('expert', env_fn, None, None, None, checkpoint=checkpoint)
-    try:
-        model.train(500, 2000, 1000, reward_fn=env_reward_fn)
-    except Exception as e:
-        model.saver.save(model.sess, '{}/failed_expert_model'.format(save_dir))
+def IRL_launcher(
+    n_iters, save_dir, expert_dir,
+    env_name, timesteps_per_rollout=2000, ep_max_len=1000,
+    train_expert=False, expert_checkpoint=None, expert_timesteps=1e5, # number of timesteps in expert demonstration data
+    irl_algo=AIRL, irl_make_reward_fn=make_AIRL_reward_fn, irl_checkpoint=None
+):
+    env_fn = lambda: gym.make(env_name)
 
-    # get expert rollouts and save model
-    expert_obs, expert_next_obs, expert_actions, _, _, _, _ = collect_and_process_rollouts(env_fn, model.policy, env_reward_fn, model.sess, 100000, 1000)
-    pickle.dump({'expert_obs': expert_obs, 'expert_next_obs': expert_next_obs, 'expert_actions': expert_actions}, open('{}/expert.pkl'.format(save_dir), 'wb'))
-    model.saver.save(model.sess, '{}/expert_model'.format(save_dir))
+    if train_expert:
+        expert_model = irl_algo('expert', env_fn, None, None, None, checkpoint=expert_checkpoint)
+        print('\nTraining expert...')
+        expert_model.train(n_iters, timesteps_per_rollout, ep_max_len, reward_fn=env_reward_fn)
+        print('\nCollecting expert trajectories...')
+        expert_obs, expert_next_obs, expert_actions, _, _, _, _ = collect_and_process_rollouts(env_fn, expert_model.policy, env_reward_fn, expert_model.sess, expert_timesteps, ep_max_len)
+        pickle.dump({'expert_obs': expert_obs, 'expert_next_obs': expert_next_obs, 'expert_actions': expert_actions}, open('{}/expert.pkl'.format(save_dir), 'wb'))
+        expert_model.saver.save(expert_model.sess, '{}/expert_model'.format(save_dir))
 
-    return expert_obs, expert_next_obs, expert_actions
+    data = pickle.load(open('{}/expert.pkl'.format(expert_dir), 'rb'))
+    expert_obs, expert_next_obs, expert_actions = data['expert_obs'], data['expert_next_obs'], data['expert_actions']
 
-def train_hc_irl(expert_obs, expert_next_obs, expert_actions, save_dir='data/halfcheetah', checkpoint=None):
-    env_fn = lambda: gym.make('HalfCheetah-v2')
-    model = AIRL('airl', env_fn, expert_obs, expert_next_obs, expert_actions, checkpoint=checkpoint)
-    try:
-        model.train(500, 2000, 1000, reward_fn=make_AIRL_reward_fn(model.discriminator, model.sess))
-    except Exception as e:
-        model.saver.save(model.sess, '{}/failed_irl_model'.format(save_dir))
+    print('\nTraining IRL...')
+    irl_model = irl_algo('irl', env_fn, expert_obs, expert_next_obs, expert_actions, checkpoint=irl_checkpoint)
+    irl_model.train(n_iters, timesteps_per_rollout, ep_max_len, reward_fn=irl_make_reward_fn(irl_model.discriminator, irl_model.sess))
 
     # evaluate and save model
-    collect_and_process_rollouts(env_fn, model.policy, env_reward_fn, model.sess, 100000, 1000)
-    model.saver.save(model.sess, '{}/irl_model'.format(save_dir))
+    print('\nEvaluating policy on original task...')
+    collect_and_process_rollouts(env_fn, irl_model.policy, env_reward_fn, irl_model.sess, expert_timesteps, ep_max_len)
+    irl_model.saver.save(irl_model.sess, '{}/irl_model'.format(save_dir))
 
-    return model
+    return irl_model
 
 if __name__ == '__main__':
-    # expert_obs, expert_next_obs, expert_actions = collect_hc_data()
-
-    data = pickle.load(open('data/halfcheetah/expert.pkl', 'rb'))
-    expert_obs, expert_next_obs, expert_actions = data['expert_obs'], data['expert_next_obs'], data['expert_actions']
-    model = train_hc_irl(expert_obs, expert_next_obs, expert_actions, checkpoint='data/halfcheetah/irl_model')
+    IRL_launcher(n_iters=500, save_dir='data/halfcheetah', expert_dir='data/halfcheetah', env_name='HalfCheetah-v2')

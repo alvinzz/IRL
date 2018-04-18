@@ -51,34 +51,14 @@ class ClipPPO:
         global_session,
         n_iters=10, batch_size=64
     ):
-        # pol_loss, val_loss, = global_session.run(
-        #     [self.surr_policy_loss, self.surr_value_loss],
-        #     feed_dict={self.obs: obs, self.actions: actions, self.old_action_log_probs: action_log_probs, self.old_values: values, self.value_targets: value_targets, self.advantages: (advantages - np.mean(advantages)) / (np.std(advantages) + 1e-8)}
-        # )
-        # print('old_pol_loss:', pol_loss)
-        # print('old_val_loss:', val_loss)
         data = [obs, actions, action_log_probs, values, value_targets, advantages]
         for iter_ in range(n_iters):
             batched_data = batchify(data, batch_size)
             for minibatch in batched_data:
                 mb_obs, mb_actions, mb_action_log_probs, mb_values, mb_value_targets, mb_advantages = minibatch
-                # normalize advantages here
-                mb_advantages = (mb_advantages - np.mean(mb_advantages)) / (np.std(mb_advantages) + 1e-8)
-                fed = {self.obs: mb_obs, self.actions: mb_actions, self.old_action_log_probs: mb_action_log_probs, self.old_values: mb_values, self.value_targets: mb_value_targets, self.advantages: mb_advantages}
-                grads, aprobratio, pol_loss, _ = global_session.run(
-                    [self.grads, self.action_prob_ratio, self.surr_policy_loss, self.train_op],
+                # normalize advantages here?
+                # mb_advantages = (mb_advantages - np.mean(mb_advantages)) / (np.std(mb_advantages) + 1e-8)
+                global_session.run(
+                    self.train_op,
                     feed_dict={self.obs: mb_obs, self.actions: mb_actions, self.old_action_log_probs: mb_action_log_probs, self.old_values: mb_values, self.value_targets: mb_value_targets, self.advantages: mb_advantages}
                 )
-                for grad in grads:
-                    for g in grad:
-                        if g.size != np.sum(np.isfinite(g)):
-                            print('NAN IN GRADS')
-                            print(fed)
-                            print(aprobratio, pol_loss)
-                            raise Exception
-        # pol_loss, val_loss = global_session.run(
-        #     [self.surr_policy_loss, self.surr_value_loss],
-        #     feed_dict={self.obs: obs, self.actions: actions, self.old_action_log_probs: action_log_probs, self.old_values: values, self.value_targets: value_targets, self.advantages: (advantages - np.mean(advantages)) / (np.std(advantages) + 1e-8)}
-        # )
-        # print('new_pol_loss:', pol_loss)
-        # print('new_val_loss:', val_loss)
