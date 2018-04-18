@@ -65,7 +65,10 @@ def collect_and_process_rollouts(
     for ep_len in ep_lens:
         ep_rewards = rewards[start_ind : start_ind + ep_len]
         ep_values = values[start_ind : start_ind + ep_len]
-        last_value = global_session.run(policy.values, feed_dict={policy.obs: [next_obs[start_ind+ep_len-1]]})[0, 0]
+        if ep_len < max_ep_len: # early termination
+            last_value = 0
+        else: # could still collect more rewards
+            last_value = global_session.run(policy.values, feed_dict={policy.obs: [next_obs[start_ind+ep_len-1]]})[0, 0]
         ep_value_targets, ep_advantages = get_value_targets_and_advantages(ep_rewards, ep_values, last_value, discount=discount, gae_lambda=gae_lambda)
         value_targets.extend(ep_value_targets)
         advantages.extend(ep_advantages)
