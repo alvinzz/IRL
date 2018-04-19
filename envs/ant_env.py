@@ -208,14 +208,14 @@ class CustomAntEnv(mujoco_env.MujocoEnv, utils.EzPickle):
         with model.asfile() as f:
             mujoco_env.MujocoEnv.__init__(self, f.name, 5)
 
-    def _step(self, a):
-        vel = self.model.data.qvel.flat[0]
+    def step(self, a):
+        vel = self.sim.data.qvel.flat[0]
         forward_reward = vel
         self.do_simulation(a, self.frame_skip)
 
         ctrl_cost = .01 * np.square(a).sum()
         contact_cost = 0.5 * 1e-3 * np.sum(
-            np.square(np.clip(self.model.data.cfrc_ext, -1, 1)))
+            np.square(np.clip(self.sim.data.cfrc_ext, -1, 1)))
         state = self.state_vector()
         flipped = not (state[2] >= 0.2)
         flipped_rew = -1 if flipped else 0
@@ -233,9 +233,9 @@ class CustomAntEnv(mujoco_env.MujocoEnv, utils.EzPickle):
 
     def _get_obs(self):
         return np.concatenate([
-            self.model.data.qpos.flat[2:],
-            self.model.data.qvel.flat,
-            np.clip(self.model.data.cfrc_ext, -1, 1).flat,
+            self.sim.data.qpos.flat[2:],
+            self.sim.data.qvel.flat,
+            np.clip(self.sim.data.cfrc_ext, -1, 1).flat,
         ])
 
     def reset_model(self):

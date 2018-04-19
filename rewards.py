@@ -9,12 +9,17 @@ def make_irl_reward_fn(model, env_reward_weight=0, entropy_weight=0.1, discrimin
         return reward
     return irl_reward
 
-def make_env_reward_fn(model, entropy_weight=0.1):
+def make_env_reward_fn(model):
     def env_reward_fn(obs, next_obs, actions, action_log_probs, env_rewards, values, entropies):
-        return env_rewards + entropy_weight*entropies
+        return env_rewards
     return env_reward_fn
 
-def make_discriminator_reward_fn(model, entropy_weight=0.1):
+def make_ent_env_reward_fn(model, entropy_weight=0.1):
+    def ent_env_reward_fn(obs, next_obs, actions, action_log_probs, env_rewards, values, entropies):
+        return env_rewards + entropy_weight*entropies
+    return ent_env_reward_fn
+
+def make_learned_reward_fn(model, entropy_weight=0.1):
     def discriminator_reward(obs, next_obs, actions, action_log_probs, env_rewards, values, entropies):
         reward = model.discriminator.reward(obs, model.sess) + entropy_weight*entropies
         return reward

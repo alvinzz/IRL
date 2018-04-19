@@ -3,7 +3,7 @@ from discriminators import AIRLDiscriminator
 import tensorflow as tf
 import numpy as np
 from rollouts import collect_and_process_rollouts
-from rewards import make_env_reward_fn
+from rewards import make_ent_env_reward_fn
 
 class RL:
     def __init__(self,
@@ -28,7 +28,7 @@ class RL:
             if checkpoint:
                 self.saver.restore(self.sess, checkpoint)
 
-    def train(self, n_iters, max_timesteps=2000, max_ep_len=1000, reward_fn=make_env_reward_fn(None)):
+    def train(self, n_iters, max_timesteps=2000, max_ep_len=1000, reward_fn=make_ent_env_reward_fn(None)):
         for iter_ in range(n_iters):
             print('______________')
             print('Iteration', iter_)
@@ -64,7 +64,7 @@ class AIRL:
             if checkpoint:
                 self.saver.restore(self.sess, checkpoint)
 
-    def train(self, n_iters, max_timesteps=2000, max_ep_len=1000, reward_fn=make_env_reward_fn(None)):
+    def train(self, n_iters, max_timesteps=2000, max_ep_len=1000, reward_fn=make_ent_env_reward_fn(None)):
         # AIRL: keep replay buffer of past 20 iterations of policies
         obs_buffer, next_obs_buffer, action_log_probs_buffer = None, None, None
         for iter_ in range(n_iters):

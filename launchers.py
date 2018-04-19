@@ -1,6 +1,6 @@
 import gym
 from algos import RL, AIRL
-from rewards import make_env_reward_fn, make_irl_reward_fn, make_discriminator_reward_fn
+from rewards import make_env_reward_fn, make_ent_env_reward_fn, make_irl_reward_fn, make_learned_reward_fn
 from rollouts import collect_and_process_rollouts
 import tensorflow as tf
 import numpy as np
@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 
 def train_expert(
     n_iters, save_dir, name,
-    env_name, make_reward_fn=make_env_reward_fn, irl_model_algo=AIRL, irl_model_name=None,
+    env_name, make_reward_fn=make_ent_env_reward_fn, irl_model_algo=AIRL, irl_model_name=None,
     timesteps_per_rollout=2000, ep_max_len=1000, demo_timesteps=1e5,
     rl_algo=RL, use_checkpoint=False,
 ):
@@ -113,12 +113,12 @@ def visualize_reward(env_name, irl_dir, irl_name, irl_algo=AIRL):
     plt.show()
 
 if __name__ == '__main__':
-    train_expert(n_iters=50, save_dir='data/pointmaze', name='expert', env_name='PointMazeRight-v0')
-    visualize_expert(env_name='PointMazeRight-v0', expert_dir='data/pointmaze', expert_name='expert')
+    train_expert(n_iters=1500, save_dir='data/ant', name='expert', env_name='CustomAnt-v0', timesteps_per_rollout=20000, ep_max_len=500, demo_timesteps=100000)
+    visualize_expert(env_name='CustomAnt-v0', expert_dir='data/ant', expert_name='expert')
 
-    train_irl(n_iters=250, save_dir='data/pointmaze', name='irl', expert_name='expert', env_name='PointMazeRight-v0')
-    visualize_irl_policy(env_name='PointMazeRight-v0', irl_dir='data/pointmaze', irl_name='irl')
-    visualize_reward(env_name='PointMazeRight-v0', irl_dir='data/pointmaze', irl_name='irl')
+    train_irl(n_iters=1000, save_dir='data/ant', name='irl', expert_name='expert', env_name='CustomAnt-v0', timesteps_per_rollout=10000, ep_max_len=500)
+    visualize_irl_policy(env_name='CustomAnt-v0', irl_dir='data/ant', irl_name='irl')
+    # visualize_reward(env_name='PointMazeRight-v0', irl_dir='data/pointmaze', irl_name='irl')
 
-    train_expert(n_iters=50, save_dir='data/pointmaze', name='transfer_expert', env_name='PointMazeLeft-v0', make_reward_fn=make_discriminator_reward_fn, irl_model_name='irl', demo_timesteps=2e4)
-    visualize_expert(env_name='PointMazeLeft-v0', expert_dir='data/pointmaze', expert_name='transfer_expert')
+    train_expert(n_iters=1000, save_dir='data/ant', name='transfer_expert', env_name='DisabledAnt-v0', make_reward_fn=make_learned_reward_fn, irl_model_name='irl', timesteps_per_rollout=10000, ep_max_len=500, demo_timesteps=50000)
+    visualize_expert(env_name='DisabledAnt-v0', expert_dir='data/ant', expert_name='transfer_expert')
