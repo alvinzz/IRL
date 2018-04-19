@@ -113,12 +113,12 @@ def visualize_reward(env_name, irl_dir, irl_name, irl_algo=AIRL):
     plt.show()
 
 if __name__ == '__main__':
-    # train_expert(n_iters=50, save_dir='data/pointmaze', name='expert', env_name='PointMazeRight-v0')
-    # visualize_expert(env_name='PointMazeRight-v0', expert_dir='data/pointmaze', expert_name='expert')
-    #
-    # train_irl(n_iters=250, save_dir='data/pointmaze', name='irl', expert_name='expert', env_name='PointMazeRight-v0')
-    # visualize_irl_policy(env_name='PointMazeRight-v0', irl_dir='data/pointmaze', irl_name='irl')
-    # visualize_reward(env_name='PointMazeRight-v0', irl_dir='data/pointmaze', irl_name='irl')
+    train_expert(n_iters=50, save_dir='data/pointmaze', name='expert', env_name='PointMazeRight-v0')
+    visualize_expert(env_name='PointMazeRight-v0', expert_dir='data/pointmaze', expert_name='expert')
+
+    train_irl(n_iters=250, save_dir='data/pointmaze', name='irl', expert_name='expert', env_name='PointMazeRight-v0')
+    visualize_irl_policy(env_name='PointMazeRight-v0', irl_dir='data/pointmaze', irl_name='irl')
+    visualize_reward(env_name='PointMazeRight-v0', irl_dir='data/pointmaze', irl_name='irl')
 
     train_expert(n_iters=50, save_dir='data/pointmaze', name='transfer_expert', env_name='PointMazeLeft-v0', make_reward_fn=make_discriminator_reward_fn, irl_model_name='irl', demo_timesteps=2e4)
     visualize_expert(env_name='PointMazeLeft-v0', expert_dir='data/pointmaze', expert_name='transfer_expert')
