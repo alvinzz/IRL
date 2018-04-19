@@ -1,0 +1,2 @@
+model_checkpoint_path: "transfer_expert_model"
+all_model_checkpoint_paths: "transfer_expert_model"

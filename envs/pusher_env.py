@@ -6,7 +6,7 @@ from gym.envs.mujoco import mujoco_env
 #from mujoco_py.mjlib import mjlib
 from rllab.misc import logger
 
-from inverse_rl.envs.dynamic_mjc.mjc_models import pusher
+from .envs.dynamic_mjc.mjc_models import pusher
 
 class PusherEnv(mujoco_env.MujocoEnv, utils.EzPickle):
     def __init__(self, sparse_reward=False, no_reward=False, episode_length=200):

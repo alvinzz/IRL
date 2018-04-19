@@ -4,9 +4,9 @@ from gym import utils
 from gym.envs.mujoco import mujoco_env
 from gym.spaces import Box
 
-from inverse_rl.envs.dynamic_mjc.mjc_models import point_mass_maze
-from inverse_rl.envs.env_utils import get_asset_xml
-from inverse_rl.envs.twod_mjc_env import TwoDEnv
+from .envs.dynamic_mjc.mjc_models import point_mass_maze
+from .envs.env_utils import get_asset_xml
+from .envs.twod_mjc_env import TwoDEnv
 
 from rllab.misc import logger as logger
 
@@ -170,7 +170,7 @@ class VisualPointMazeEnv(mujoco_env.MujocoEnv, utils.EzPickle):
 
 
 if __name__ == "__main__":
-    from inverse_rl.utils.getch import getKey
+    from .utils.getch import getKey
     #env = VisualTwoDMaze(verbose=True)
     env = VisualPointMazeEnv()
 
