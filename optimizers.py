@@ -1,6 +1,6 @@
 import tensorflow as tf
 import numpy as np
-from utils import batchify, threshold
+from utils import batchify
 
 class ClipPPO:
     def __init__(self,

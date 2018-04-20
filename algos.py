@@ -28,11 +28,11 @@ class RL:
             if checkpoint:
                 self.saver.restore(self.sess, checkpoint)
 
-    def train(self, n_iters, max_timesteps=2000, max_ep_len=1000, reward_fn=make_ent_env_reward_fn(None)):
+    def train(self, n_iters, batch_timesteps=10000, max_ep_len=500, reward_fn=make_ent_env_reward_fn(None)):
         for iter_ in range(n_iters):
             print('______________')
             print('Iteration', iter_)
-            obs, next_obs, actions, action_log_probs, values, value_targets, advantages = collect_and_process_rollouts(self.env_fn, self.policy, reward_fn, self.sess, max_timesteps, max_ep_len)
+            obs, next_obs, actions, action_log_probs, values, value_targets, advantages = collect_and_process_rollouts(self.env_fn, self.policy, reward_fn, self.sess, batch_timesteps, max_ep_len)
             self.policy.optimizer.train(obs, next_obs, actions, action_log_probs, values, value_targets, advantages, self.sess)
 
 class AIRL:
@@ -64,19 +64,19 @@ class AIRL:
             if checkpoint:
                 self.saver.restore(self.sess, checkpoint)
 
-    def train(self, n_iters, max_timesteps=2000, max_ep_len=1000, reward_fn=make_ent_env_reward_fn(None)):
+    def train(self, n_iters, batch_timesteps=10000, max_ep_len=500, reward_fn=make_ent_env_reward_fn(None)):
         # AIRL: keep replay buffer of past 20 iterations of policies
         obs_buffer, next_obs_buffer, action_log_probs_buffer = None, None, None
         for iter_ in range(n_iters):
             print('______________')
             print('Iteration', iter_)
-            obs, next_obs, actions, action_log_probs, values, value_targets, advantages = collect_and_process_rollouts(self.env_fn, self.policy, reward_fn, self.sess, max_timesteps, max_ep_len)
+            obs, next_obs, actions, action_log_probs, values, value_targets, advantages = collect_and_process_rollouts(self.env_fn, self.policy, reward_fn, self.sess, batch_timesteps, max_ep_len)
 
             if obs_buffer is None:
                 obs_buffer, next_obs_buffer, action_log_probs_buffer = obs, next_obs, action_log_probs
             else:
                 obs_buffer, next_obs_buffer, action_log_probs_buffer = np.concatenate((obs_buffer, obs)), np.concatenate((next_obs_buffer, next_obs)), np.concatenate((action_log_probs_buffer, action_log_probs))
-                obs_buffer, next_obs_buffer, action_log_probs_buffer = obs_buffer[-20*max_timesteps:], next_obs_buffer[-20*max_timesteps:], action_log_probs_buffer[-20*max_timesteps:]
+                obs_buffer, next_obs_buffer, action_log_probs_buffer = obs_buffer[-20*batch_timesteps:], next_obs_buffer[-20*batch_timesteps:], action_log_probs_buffer[-20*batch_timesteps:]
 
             self.policy.optimizer.train(obs, next_obs, actions, action_log_probs, values, value_targets, advantages, self.sess)
             self.discriminator.train(

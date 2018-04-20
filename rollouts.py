@@ -1,5 +1,4 @@
 import numpy as np
-from utils import threshold
 
 def collect_and_process_rollouts(
     env_fn, policy, reward_fn, global_session,
@@ -24,7 +23,7 @@ def collect_and_process_rollouts(
         for n in reversed(range(n_envs)):
             action = action_vec[n]
             # threshold actions
-            threshholded_action = threshold(action, env_vec[n].action_space.high, env_vec[n].action_space.low)
+            threshholded_action = np.clip(action, env_vec[n].action_space.high, env_vec[n].action_space.low)
             ob, env_reward, done, info = env_vec[n].step(threshholded_action)
             obs_vec[n].append(ob)
             next_obs_vec[n].append(ob)

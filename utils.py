@@ -17,9 +17,3 @@ def batchify(data, batch_size):
         res.append([category[batch_inds] for category in data])
         start_ind += batch_size
     return res
-
-def threshold(arr, high, low):
-    arr = copy.deepcopy(arr)
-    arr[arr > high] = high[arr > high]
-    arr[arr < low] = low[arr < low]
-    return arr
