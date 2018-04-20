@@ -112,8 +112,8 @@ class CustomGymEnv(RllabGymEnv):
                  post_create_env_seed=None):
         Serializable.quick_init(self, locals())
         if register_fn is None:
-            import inverse_rl.envs
-            register_fn = inverse_rl.envs.register_custom_envs
+            import IRL.envs
+            register_fn = IRL.envs.register_custom_envs
         register_fn()  # Force register
         self.env_name = env_name
         super(CustomGymEnv, self).__init__(env_name, wrappers=gym_wrappers,
@@ -181,4 +181,3 @@ def test_env(env, T=100):
         env.render()
         if done:
             break
-

@@ -50,6 +50,13 @@ class AIRLDiscriminator:
         )
         return expert_probs
 
+    def reward(self, obs, global_session):
+        rewards = global_session.run(
+            self.rewards,
+            feed_dict={self.obs: obs}
+        )
+        return rewards
+
     def train(self,
             expert_obs, expert_next_obs, expert_actions,
             policy_obs, policy_next_obs, policy_action_log_probs,
@@ -74,6 +81,7 @@ class AIRLDiscriminator:
                     self.train_op,
                     feed_dict={self.obs: mb_obs, self.next_obs: mb_next_obs, self.policy_action_log_probs: mb_policy_action_log_probs, self.labels: labels}
                 )
+
             loss = global_session.run(
                 self.loss,
                 feed_dict={self.obs: mb_obs, self.next_obs: mb_next_obs, self.policy_action_log_probs: mb_policy_action_log_probs, self.labels: labels}
