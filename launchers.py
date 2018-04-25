@@ -118,12 +118,18 @@ def visualize_reward(env_name, irl_dir, irl_name, irl_algo=AIRL):
     plt.show()
 
 if __name__ == '__main__':
-    train_expert(n_iters=1500, save_dir='data/ant', name='expert', env_name='CustomAnt-v0', use_checkpoint=True)
-    visualize_expert(env_name='CustomAnt-v0', expert_dir='data/ant', expert_name='expert')
-
-    train_irl(n_iters=1000, save_dir='data/ant', name='irl', expert_name='expert', env_name='CustomAnt-v0', use_checkpoint=True)
-    visualize_irl_policy(env_name='CustomAnt-v0', irl_dir='data/ant', irl_name='irl')
+    # for i in range(1):
+    #     env = gym.make('PointMass-v{}'.format(i))
+    #     for _ in range(25):
+    #         env.step((1, 0))
+    #         env.render()
+    #     time.sleep(1)
+    # train_expert(n_iters=1500, save_dir='data/ant', name='expert', env_name='CustomAnt-v0', use_checkpoint=True)
+    # visualize_expert(env_name='CustomAnt-v0', expert_dir='data/ant', expert_name='expert')
+    #
+    # train_irl(n_iters=1000, save_dir='data/ant', name='irl', expert_name='expert', env_name='CustomAnt-v0', use_checkpoint=True)
+    # visualize_irl_policy(env_name='CustomAnt-v0', irl_dir='data/ant', irl_name='irl')
     # visualize_reward(env_name='PointMazeRight-v0', irl_dir='data/pointmaze', irl_name='irl')
-
-    train_expert(n_iters=1000, save_dir='data/ant', name='transfer_expert', env_name='DisabledAnt-v0', demo_timesteps=2500, use_checkpoint=True)
-    visualize_expert(env_name='DisabledAnt-v0', expert_dir='data/ant', expert_name='transfer_expert')
+    #
+    # train_expert(n_iters=1000, save_dir='data/ant', name='transfer_expert', env_name='DisabledAnt-v0', demo_timesteps=2500, use_checkpoint=True)
+    # visualize_expert(env_name='DisabledAnt-v0', expert_dir='data/ant', expert_name='transfer_expert', ep_max_len=250)

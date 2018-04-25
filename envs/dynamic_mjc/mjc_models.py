@@ -122,6 +122,49 @@ def twod_corridor(direction=EAST, length=1.2):
 LEFT = 0
 RIGHT = 1
 
+def pointmass(target):
+    mjcmodel = MJCModel('pointmass')
+    mjcmodel.root.compiler(inertiafromgeom="true", angle="radian", coordinate="local")
+    mjcmodel.root.option(timestep="0.01", gravity="0 0 0", iterations="20", integrator="Euler")
+    default = mjcmodel.root.default()
+    default.joint(damping=1, limited='false')
+    default.geom(friction=".5 .1 .1", density="1000", margin="0.002", condim="1", contype="2", conaffinity="1")
+
+    worldbody = mjcmodel.root.worldbody()
+
+    particle = worldbody.body(name='particle', pos=[0,0,0])
+    particle.geom(name='particle_geom', type='sphere', size='0.03', rgba=[1,1,1,1], contype=1)
+    particle.site(name='particle_site', pos=[0,0,0], size=0.01)
+    particle.joint(name='ball_x', type='slide', pos=[0,0,0], axis=[1,0,0])
+    particle.joint(name='ball_y', type='slide', pos=[0,0,0], axis=[0,1,0])
+
+    target_0 = worldbody.body(name='target_0', pos=[1,0,0])
+    if target == 0:
+        target_0.geom(name='target_0_geom', conaffinity=2, type='sphere', size=0.02, rgba=[0,1,0,1])
+    else:
+        target_0.geom(name='target_0_geom', conaffinity=2, type='sphere', size=0.02, rgba=[1,1,0,1])
+    target_1 = worldbody.body(name='target_1', pos=[0,1,0])
+    if target == 1:
+        target_1.geom(name='target_1_geom', conaffinity=2, type='sphere', size=0.02, rgba=[0,1,0,1])
+    else:
+        target_1.geom(name='target_1_geom', conaffinity=2, type='sphere', size=0.02, rgba=[1,1,0,1])
+    target_2 = worldbody.body(name='target_2', pos=[-1,0,0])
+    if target == 2:
+        target_2.geom(name='target_2_geom', conaffinity=2, type='sphere', size=0.02, rgba=[0,1,0,1])
+    else:
+        target_2.geom(name='target_2_geom', conaffinity=2, type='sphere', size=0.02, rgba=[1,1,0,1])
+    target_3 = worldbody.body(name='target_3', pos=[0,-1,0])
+    if target == 3:
+        target_3.geom(name='target_3_geom', conaffinity=2, type='sphere', size=0.02, rgba=[0,1,0,1])
+    else:
+        target_3.geom(name='target_3_geom', conaffinity=2, type='sphere', size=0.02, rgba=[1,1,0,1])
+
+    actuator = mjcmodel.root.actuator()
+    actuator.motor(joint="ball_x", ctrlrange=[-1.0, 1.0], ctrllimited=True)
+    actuator.motor(joint="ball_y", ctrlrange=[-1.0, 1.0], ctrllimited=True)
+
+    return mjcmodel
+
 def point_mass_maze(direction=RIGHT, length=1.2, borders=True):
     mjcmodel = MJCModel('twod_maze')
     mjcmodel.root.compiler(inertiafromgeom="true", angle="radian", coordinate="local")
