@@ -19,6 +19,7 @@ class TurtleEnv(gym.Env):
 
         self.height = 100.0
         self.width = 100.0
+        self.target = np.concatenate((50*np.random.rand(2), [0]))
         high = np.array([self.max_linear_vel, self.max_angular_vel])
 
         # Range of linear and angular velocities that the turtlebot accepts as input.
@@ -52,7 +53,7 @@ class TurtleEnv(gym.Env):
         new_th = th + dth
         self.state = np.array([new_x, new_y, new_th])
 
-        costs = 0 # for now!
+        costs = np.linalg.norm(self.target - self.state)
         return self._get_obs(), -costs, False, {}
 
     def reset(self):
@@ -62,7 +63,7 @@ class TurtleEnv(gym.Env):
         return self._get_obs()
 
     def _get_obs(self):
-        return self.state
+        return np.concatenate(self.state, self.target)
 
     def render(self, mode='human'):
 
