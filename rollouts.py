@@ -23,7 +23,7 @@ def collect_and_process_rollouts(
         for n in reversed(range(n_envs)):
             action = action_vec[n]
             # threshold actions
-            threshholded_action = np.clip(action, env_vec[n].action_space.high, env_vec[n].action_space.low)
+            threshholded_action = np.clip(action, env_vec[n].action_space.low, env_vec[n].action_space.high)
             ob, env_reward, done, info = env_vec[n].step(threshholded_action)
             obs_vec[n].append(ob)
             next_obs_vec[n].append(ob)

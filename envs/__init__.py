@@ -35,3 +35,5 @@ def register_custom_envs():
 
     register(id='VisualPointMaze-v0', entry_point='IRL.envs.visual_pointmass:VisualPointMazeEnv',
             kwargs={'sparse_reward': False, 'direction': 1})
+
+    register(id='Turtle-v0', entry_point='IRL.envs.turtle_env:TurtleEnv')

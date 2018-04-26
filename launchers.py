@@ -69,7 +69,21 @@ def train_irl(
 def visualize_expert(env_name, expert_dir, expert_name, rl_algo=RL, ep_max_len=100, n_runs=1):
     tf.reset_default_graph()
     env_fn = lambda: gym.make(env_name)
+
+    from tensorflow.python import pywrap_tensorflow
+    reader = pywrap_tensorflow.NewCheckpointReader('data/turtle/expert_test_model')
+    var_to_shape_map = reader.get_variable_to_shape_map()
+    print(var_to_shape_map)
+
     expert_model = rl_algo(expert_name, env_fn, checkpoint='{}/{}_model'.format(expert_dir, expert_name))
+    var_names = [v.name for v in tf.trainable_variables()]
+    values = expert_model.sess.run(var_names)
+    print([(var_name, value) for (var_name, value) in zip(var_names, values)])
+    # expert_model.sess.run(tf.global_variables_initializer())
+    # expert_model.sess.run(expert_model.policy.mean_network.params['b0'].assign(np.array([1, 0.00576488])))
+    # expert_model.sess.run(tf.global_variables_initializer())
+    # expert_model.saver.save(expert_model.sess, 'data/turtle/expert_test_model')
+
     env = gym.make(env_name)
     for n in range(n_runs):
         obs = env.reset()
@@ -118,12 +132,14 @@ def visualize_reward(env_name, irl_dir, irl_name, irl_algo=AIRL):
     plt.show()
 
 if __name__ == '__main__':
-    for i in range(1):
-        env = gym.make('PointMass-v{}'.format(i))
-        for _ in range(25):
-            env.step((1, 0))
-            env.render()
-        time.sleep(1)
+    # for i in range(1):
+    #     env = gym.make('PointMass-v{}'.format(i))
+    #     for _ in range(25):
+    #         env.step((1, 0))
+    #         env.render()
+    #     time.sleep(1)
+    # train_expert(n_iters=500, save_dir='data/turtle', name='expert', env_name='Turtle-v0', use_checkpoint=True, demo_timesteps=10000, timesteps_per_rollout=2000, ep_max_len=100)
+    visualize_expert(env_name='Turtle-v0', expert_dir='data/turtle', expert_name='expert_test', ep_max_len=250)
     # train_expert(n_iters=1500, save_dir='data/ant', name='expert', env_name='CustomAnt-v0', use_checkpoint=True)
     # visualize_expert(env_name='CustomAnt-v0', expert_dir='data/ant', expert_name='expert')
     #
