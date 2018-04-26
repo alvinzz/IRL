@@ -13,13 +13,13 @@ class TurtleEnv(gym.Env):
 
     def __init__(self):
         self.viewer = None
-        self.max_linear_vel = 10
+        self.max_linear_vel = 0.1
         self.max_angular_vel = 5
         self.dt = 0.05
+        self.target = np.random.rand(2)
 
-        self.height = 100.0
-        self.width = 100.0
-        self.target = 100*np.random.rand(2)
+        self.height = 1
+        self.width = 1
         high = np.array([self.max_linear_vel, self.max_angular_vel])
 
         # Range of linear and angular velocities that the turtlebot accepts as input.
@@ -57,15 +57,17 @@ class TurtleEnv(gym.Env):
             new_th -= 2*np.pi
         self.state = np.array([new_x, new_y, new_th])
 
-        costs = 0.01*np.linalg.norm(self.target - self.state[:2])
-        costs += 10*self._get_angle()**2
-        # print(self._get_angle())
-        return self._get_obs(), -costs, False, {}
+        costs = np.linalg.norm(self.target - self.state[:2])
+        costs += self._get_angle()**2
+
+        done = (np.linalg.norm(self.target - self.state[:2]) < 0.01)
+        return self._get_obs(), -costs, done, {}
 
     def reset(self):
         # Start in the middle of the board with an angle of 0
         # self.state = np.array([self.width / 2, self.height / 2, 0])
-        self.state = np.array([100*np.random.rand(), 100*np.random.rand(), 2*np.pi*(np.random.rand()-0.5)])
+        self.target = np.random.rand(2)
+        self.state = np.array([np.random.rand(), np.random.rand(), 2*np.pi*(np.random.rand()-0.5)])
         self.last_u = None
         return self._get_obs()
 
@@ -88,13 +90,13 @@ class TurtleEnv(gym.Env):
             # self.viewer.set_bounds(-2.2,2.2,-2.2,2.2)
             self.viewer.set_bounds(0, self.width, 0, self.height)
 
-            turtle = rendering.make_circle(3)
+            turtle = rendering.make_circle(0.03)
             turtle.set_color(0, 0, 0)
             self.turtle_transform = rendering.Transform()
             turtle.add_attr(self.turtle_transform)
             self.viewer.add_geom(turtle)
 
-            target = rendering.make_circle(1)
+            target = rendering.make_circle(0.01)
             target.set_color(0, 16, 0)
             self.target_transform = rendering.Transform()
             target.add_attr(self.target_transform)

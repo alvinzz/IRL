@@ -69,20 +69,7 @@ def train_irl(
 def visualize_expert(env_name, expert_dir, expert_name, rl_algo=RL, ep_max_len=100, n_runs=1):
     tf.reset_default_graph()
     env_fn = lambda: gym.make(env_name)
-
-    from tensorflow.python import pywrap_tensorflow
-    reader = pywrap_tensorflow.NewCheckpointReader('data/turtle/expert_test_model')
-    var_to_shape_map = reader.get_variable_to_shape_map()
-    print(var_to_shape_map)
-
     expert_model = rl_algo(expert_name, env_fn, checkpoint='{}/{}_model'.format(expert_dir, expert_name))
-    var_names = [v.name for v in tf.trainable_variables()]
-    values = expert_model.sess.run(var_names)
-    print([(var_name, value) for (var_name, value) in zip(var_names, values)])
-    # expert_model.sess.run(tf.global_variables_initializer())
-    # expert_model.sess.run(expert_model.policy.mean_network.params['b0'].assign(np.array([1, 0.00576488])))
-    # expert_model.sess.run(tf.global_variables_initializer())
-    # expert_model.saver.save(expert_model.sess, 'data/turtle/expert_test_model')
 
     env = gym.make(env_name)
     for n in range(n_runs):
@@ -122,9 +109,9 @@ def visualize_reward(env_name, irl_dir, irl_name, irl_algo=AIRL):
     irl_model = irl_algo(irl_name, env_fn, None, None, None, checkpoint='{}/{}_model'.format(irl_dir, irl_name))
 
     rewards = np.zeros((100, 100))
-    for i, x in zip(np.arange(100), np.linspace(-0.1, 0.6, 100)):
-        for j, y in zip(np.arange(100), np.linspace(-0.1, 0.6, 100)):
-            rewards[i, j] = irl_model.discriminator.reward(np.array([[x, y, 0]]), irl_model.sess)
+    for i, x in zip(np.arange(100), np.linspace(0, 1, 100)):
+        for j, y in zip(np.arange(100), np.linspace(0, 1, 100)):
+            rewards[i, j] = irl_model.discriminator.reward(np.array([[x, y, 0, 0.20, 0.20, 0]]), irl_model.sess)
 
     print('scale:', np.min(rewards), '(black) to', np.max(rewards), '(white)')
     rewards = (rewards - np.min(rewards)) / (np.max(rewards) - np.min(rewards))
@@ -132,20 +119,12 @@ def visualize_reward(env_name, irl_dir, irl_name, irl_algo=AIRL):
     plt.show()
 
 if __name__ == '__main__':
-    # for i in range(1):
-    #     env = gym.make('PointMass-v{}'.format(i))
-    #     for _ in range(25):
-    #         env.step((1, 0))
-    #         env.render()
-    #     time.sleep(1)
-    # train_expert(n_iters=500, save_dir='data/turtle', name='expert', env_name='Turtle-v0', use_checkpoint=True, demo_timesteps=10000, timesteps_per_rollout=2000, ep_max_len=100)
-    visualize_expert(env_name='Turtle-v0', expert_dir='data/turtle', expert_name='expert_test', ep_max_len=250)
-    # train_expert(n_iters=1500, save_dir='data/ant', name='expert', env_name='CustomAnt-v0', use_checkpoint=True)
-    # visualize_expert(env_name='CustomAnt-v0', expert_dir='data/ant', expert_name='expert')
+    # #train_expert(n_iters=500, save_dir='data/turtle', name='expert', env_name='Turtle-v0', use_checkpoint=True)
+    # #visualize_expert(env_name='Turtle-v0', expert_dir='data/turtle', expert_name='expert')
     #
-    # train_irl(n_iters=1000, save_dir='data/ant', name='irl', expert_name='expert', env_name='CustomAnt-v0', use_checkpoint=True)
-    # visualize_irl_policy(env_name='CustomAnt-v0', irl_dir='data/ant', irl_name='irl')
-    # # visualize_reward(env_name='PointMazeRight-v0', irl_dir='data/pointmaze', irl_name='irl')
+    # train_irl(n_iters=500, save_dir='data/turtle', name='irl_2', expert_name='expert', env_name='Turtle-v0', use_checkpoint=True)
+    # visualize_irl_policy(env_name='Turtle-v0', irl_dir='data/turtle', irl_name='irl_2')
+    # visualize_reward(env_name='Turtle-v0', irl_dir='data/turtle', irl_name='irl_2')
     #
-    # train_expert(n_iters=1000, save_dir='data/ant', name='transfer_expert', env_name='DisabledAnt-v0', demo_timesteps=2500, use_checkpoint=True)
-    # visualize_expert(env_name='DisabledAnt-v0', expert_dir='data/ant', expert_name='transfer_expert')
+    train_expert(n_iters=100, save_dir='data/turtle', name='recover_expert', env_name='Turtle-v0', demo_timesteps=2500, use_checkpoint=True, make_reward_fn=make_learned_reward_fn, irl_model_name='irl_2')
+    visualize_expert(env_name='Turtle-v0', expert_dir='data/turtle', expert_name='recover_expert', n_runs=5, ep_max_len=500)

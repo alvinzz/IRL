@@ -1,2 +1,2 @@
-model_checkpoint_path: "expert_test_model"
-all_model_checkpoint_paths: "expert_test_model"
+model_checkpoint_path: "recover_expert_model"
+all_model_checkpoint_paths: "recover_expert_model"
