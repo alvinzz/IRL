@@ -8,19 +8,21 @@ from IRL.envs.dynamic_mjc.mjc_models import pointmass
 
 # target should be in [0, 1, 2, 3]
 class PointMass(mujoco_env.MujocoEnv, utils.EzPickle):
-    def __init__(self, target=0, episode_length=25):
+    def __init__(self, targets=[0], episode_length=100):
         utils.EzPickle.__init__(self)
+
         self.max_episode_length = episode_length
-        self.target = target
+        self.targets = targets
 
         self.episode_length = 0
 
-        model = pointmass(target)
+        model = pointmass(targets)
         with model.asfile() as f:
             mujoco_env.MujocoEnv.__init__(self, f.name, frame_skip=5)
 
     def step(self, a):
-        vec_dist = self.get_body_com("particle") - self.get_body_com("target_{}".format(self.target))
+        target_num = (self.episode_length * len(self.targets)) // self.max_episode_length
+        vec_dist = self.get_body_com("particle") - self.get_body_com("target_{}".format(self.targets[target_num]))
 
         reward_dist = - np.linalg.norm(vec_dist)  # particle to target
         reward_ctrl = - np.square(a).sum()
@@ -45,8 +47,10 @@ class PointMass(mujoco_env.MujocoEnv, utils.EzPickle):
         return self._get_obs()
 
     def _get_obs(self):
+        target_num = (self.episode_length * len(self.targets)) // self.max_episode_length
         return np.concatenate([
             self.get_body_com("particle"),
+            [self.episode_length]
             # self.get_body_com("target"),
         ])
 

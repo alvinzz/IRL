@@ -5,6 +5,10 @@ def sample_minibatch(obs, next_obs, action_log_probs, batch_size):
     random_indices = np.random.randint(0, obs.shape[0], size=batch_size)
     return obs[random_indices], next_obs[random_indices], action_log_probs[random_indices]
 
+def sample_basis_minibatch(obs, next_obs, action_log_probs, batch_size):
+    random_indices = np.random.randint(0, obs.shape[1], size=batch_size)
+    return obs[:, random_indices, :, :-1], next_obs[:, random_indices, :, :-1], action_log_probs[:, random_indices, :, :]
+
 def batchify(data, batch_size):
     N = data[0].shape[0]
     # batch_size = int(np.ceil(N / n_batches))

@@ -122,7 +122,7 @@ def twod_corridor(direction=EAST, length=1.2):
 LEFT = 0
 RIGHT = 1
 
-def pointmass(target):
+def pointmass(targets):
     mjcmodel = MJCModel('pointmass')
     mjcmodel.root.compiler(inertiafromgeom="true", angle="radian", coordinate="local")
     mjcmodel.root.option(timestep="0.01", gravity="0 0 0", iterations="20", integrator="Euler")
@@ -139,25 +139,25 @@ def pointmass(target):
     particle.joint(name='ball_y', type='slide', pos=[0,0,0], axis=[0,1,0])
 
     target_0 = worldbody.body(name='target_0', pos=[1,0,0])
-    if target == 0:
-        target_0.geom(name='target_0_geom', conaffinity=2, type='sphere', size=0.02, rgba=[0,1,0,1])
+    if 0 in targets:
+        target_0.geom(name='target_0_geom', conaffinity=2, type='sphere', size=0.02, rgba=[0 if len(targets) <= 1 else 1 - targets.index(0)/(len(targets)-1),1,0,1])
     else:
-        target_0.geom(name='target_0_geom', conaffinity=2, type='sphere', size=0.02, rgba=[1,1,0,1])
+        target_0.geom(name='target_0_geom', conaffinity=2, type='sphere', size=0.02, rgba=[1,0,0,1])
     target_1 = worldbody.body(name='target_1', pos=[0,1,0])
-    if target == 1:
-        target_1.geom(name='target_1_geom', conaffinity=2, type='sphere', size=0.02, rgba=[0,1,0,1])
+    if 1 in targets:
+        target_1.geom(name='target_1_geom', conaffinity=2, type='sphere', size=0.02, rgba=[0 if len(targets) <= 1 else 1 - targets.index(1)/(len(targets)-1),1,0,1])
     else:
-        target_1.geom(name='target_1_geom', conaffinity=2, type='sphere', size=0.02, rgba=[1,1,0,1])
+        target_1.geom(name='target_1_geom', conaffinity=2, type='sphere', size=0.02, rgba=[1,0,0,1])
     target_2 = worldbody.body(name='target_2', pos=[-1,0,0])
-    if target == 2:
-        target_2.geom(name='target_2_geom', conaffinity=2, type='sphere', size=0.02, rgba=[0,1,0,1])
+    if 2 in targets:
+        target_2.geom(name='target_2_geom', conaffinity=2, type='sphere', size=0.02, rgba=[0 if len(targets) <= 1 else 1 - targets.index(2)/(len(targets)-1),1,0,1])
     else:
-        target_2.geom(name='target_2_geom', conaffinity=2, type='sphere', size=0.02, rgba=[1,1,0,1])
+        target_2.geom(name='target_2_geom', conaffinity=2, type='sphere', size=0.02, rgba=[1,0,0,1])
     target_3 = worldbody.body(name='target_3', pos=[0,-1,0])
-    if target == 3:
-        target_3.geom(name='target_3_geom', conaffinity=2, type='sphere', size=0.02, rgba=[0,1,0,1])
+    if 3 in targets:
+        target_3.geom(name='target_3_geom', conaffinity=2, type='sphere', size=0.02, rgba=[0 if len(targets) <= 1 else 1 - targets.index(3)/(len(targets)-1),1,0,1])
     else:
-        target_3.geom(name='target_3_geom', conaffinity=2, type='sphere', size=0.02, rgba=[1,1,0,1])
+        target_3.geom(name='target_3_geom', conaffinity=2, type='sphere', size=0.02, rgba=[1,0,0,1])
 
     actuator = mjcmodel.root.actuator()
     actuator.motor(joint="ball_x", ctrlrange=[-1.0, 1.0], ctrllimited=True)

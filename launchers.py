@@ -118,15 +118,45 @@ def visualize_reward(env_name, irl_dir, irl_name, irl_algo=AIRL):
     plt.show()
 
 if __name__ == '__main__':
-    # for i in range(1):
-    #     env = gym.make('PointMass-v{}'.format(i))
-    #     for _ in range(25):
-    #         env.step((1, 0))
-    #         env.render()
-    #     time.sleep(1)
-    # train_expert(n_iters=1500, save_dir='data/ant', name='expert', env_name='CustomAnt-v0', use_checkpoint=True)
-    # visualize_expert(env_name='CustomAnt-v0', expert_dir='data/ant', expert_name='expert')
-    #
+    # target_dict = {
+    #     0: np.array([1, 0]),
+    #     1: np.array([0, 1]),
+    #     2: np.array([-1, 0]),
+    #     3: np.array([0, -1]),
+    # }
+    # for i in range(4):
+    #     for j in range(4):
+    #         print(i, j)
+    #         env = gym.make('PointMass-v{}{}'.format(i, j))
+    #         obs, actions, next_obs = [], [], []
+    #         for _ in range(50):
+    #             rollout_obs, rollout_next_obs, rollout_actions = [], [], []
+    #             rollout_obs.append(env.reset())
+    #             for _ in range(50):
+    #                 action = 4*(target_dict[i]-rollout_obs[-1][:2]) + np.random.normal(size=2)
+    #                 ep_obs, reward, done, info = env.step(action)
+    #                 rollout_obs.append(ep_obs)
+    #                 rollout_next_obs.append(ep_obs)
+    #                 rollout_actions.append(action)
+    #             for _ in range(50):
+    #                 action = 4*(target_dict[j]-rollout_obs[-1][:2]) + np.random.normal(size=2)
+    #                 ep_obs, reward, done, info = env.step(action)
+    #                 rollout_obs.append(ep_obs)
+    #                 rollout_next_obs.append(ep_obs)
+    #                 rollout_actions.append(action)
+    #             rollout_obs = rollout_obs[:-1]
+    #             obs.append(rollout_obs)
+    #             next_obs.append(rollout_next_obs)
+    #             actions.append(rollout_actions)
+    #         obs, next_obs, actions = np.array(obs), np.array(next_obs), np.array(actions)
+    #         pickle.dump({'expert_obs': obs, 'expert_next_obs': next_obs, 'expert_actions': actions}, open('data/pointmass/expert{}{}.pkl'.format(i, j), 'wb'))
+
+    # for i in range(4):
+    #     for j in range(4):
+    #         print('Training', i, j)
+#             train_expert(n_iters=200, save_dir='data/pointmass', name='expert-{}'.format(i), env_name='PointMass-v{}'.format(i), use_checkpoint=False, timesteps_per_rollout=1000, ep_max_len=250, demo_timesteps=1e4)
+#             visualize_expert(env_name='PointMass-v{}'.format(i), expert_dir='data/pointmass', expert_name='expert-{}'.format(i))
+
     # train_irl(n_iters=1000, save_dir='data/ant', name='irl', expert_name='expert', env_name='CustomAnt-v0', use_checkpoint=True)
     # visualize_irl_policy(env_name='CustomAnt-v0', irl_dir='data/ant', irl_name='irl')
     # visualize_reward(env_name='PointMazeRight-v0', irl_dir='data/pointmaze', irl_name='irl')
