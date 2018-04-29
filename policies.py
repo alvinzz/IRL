@@ -14,7 +14,7 @@ class GaussianMLPPolicy:
         action_dim,
         var_network=False, # NN if true, else trainable params indep of obs
         out_activation=None,
-        hidden_dims=[64, 64],
+        hidden_dims=[64, 64, 64],
         hidden_activation=tf.nn.elu,
         weight_init=tf.contrib.layers.xavier_initializer,
         bias_init=tf.zeros_initializer,

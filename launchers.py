@@ -1,6 +1,6 @@
 import gym
-from algos import RL, AIRL
-from rewards import make_env_reward_fn, make_ent_env_reward_fn, make_irl_reward_fn, make_learned_reward_fn
+from algos import RL, AIRL, SHAIRL
+from rewards import make_env_reward_fn, make_ent_env_reward_fn, make_irl_reward_fn, make_learned_reward_fn, make_shairl_reward_fns
 from rollouts import collect_and_process_rollouts
 import tensorflow as tf
 import numpy as np
@@ -31,7 +31,7 @@ def train_expert(
         reward_fn_model = None
 
     print('\nTraining expert...')
-    expert_model.train(n_iters, timesteps_per_rollout, ep_max_len, reward_fn=make_reward_fn(reward_fn_model))
+    expert_model.train(n_iters, make_reward_fn(reward_fn_model), timesteps_per_rollout, ep_max_len)
 
     print('\nCollecting expert trajectories, evaluating on original task...')
     expert_obs, expert_next_obs, expert_actions, _, _, _, _ = collect_and_process_rollouts(env_fn, expert_model.policy, make_env_reward_fn(None), expert_model.sess, demo_timesteps, ep_max_len)
@@ -57,11 +57,43 @@ def train_irl(
     else:
         checkpoint = None
     irl_model = irl_algo(name, env_fn, expert_obs, expert_next_obs, expert_actions, checkpoint=checkpoint)
-    irl_model.train(n_iters, timesteps_per_rollout, ep_max_len, reward_fn=make_irl_reward_fn(irl_model))
+    irl_model.train(n_iters, make_reward_fn(irl_model), timesteps_per_rollout, ep_max_len)
 
     # evaluate and save model
     print('\nEvaluating policy on original task...')
     collect_and_process_rollouts(env_fn, irl_model.policy, make_env_reward_fn(None), irl_model.sess, 20*ep_max_len, ep_max_len)
+
+    irl_model.saver.save(irl_model.sess, '{}/{}_model'.format(save_dir, name))
+    return irl_model
+
+def train_shairl(
+    n_iters, save_dir, name, expert_names,
+    env_names, make_reward_fns=make_shairl_reward_fns,
+    timesteps_per_rollout=1000, ep_len=100,
+    irl_algo=SHAIRL, basis_size=5, use_checkpoint=False,
+):
+    tf.reset_default_graph()
+    env_fns = [lambda: gym.make(env_name) for env_name in env_names]
+    expert_obs, expert_next_obs, expert_actions = [], [], []
+    for expert_name in expert_names:
+        data = pickle.load(open('{}/{}.pkl'.format(save_dir, expert_name), 'rb'))
+        expert_obs.append(data['expert_obs'])
+        expert_next_obs.append(data['expert_next_obs'])
+        expert_actions.append(data['expert_actions'])
+
+    print('\nTraining SHAIRL...')
+    if use_checkpoint:
+        checkpoint = '{}/{}_model'.format(save_dir, name)
+    else:
+        checkpoint = None
+    irl_model = irl_algo(name, basis_size, env_fns, ep_len, expert_obs, expert_next_obs, expert_actions, checkpoint=checkpoint)
+    irl_model.train(n_iters, make_reward_fns(irl_model), timesteps_per_rollout, ep_len)
+
+    # evaluate and save model
+    print('\nEvaluating policy on original tasks...')
+    for task in range(len(env_fns)):
+        print('Task', task)
+        collect_and_process_rollouts(env_fns[task], irl_model.policies[task], make_env_reward_fn(None), irl_model.sess, 20*ep_len, ep_len)
 
     irl_model.saver.save(irl_model.sess, '{}/{}_model'.format(save_dir, name))
     return irl_model
@@ -101,15 +133,33 @@ def visualize_irl_policy(env_name, irl_dir, irl_name, irl_algo=AIRL, ep_max_len=
             t += 1
         time.sleep(1)
 
-# works only for pointmaze atm
-def visualize_reward(env_name, irl_dir, irl_name, irl_algo=AIRL):
+def visualize_shairl_policy(env_names, tasks, irl_dir, irl_name, irl_algo=SHAIRL, basis_size=5, ep_len=100, n_runs=1):
+    tf.reset_default_graph()
+    env_fns = [lambda: gym.make(env_name) for env_name in env_names]
+    irl_model = irl_algo(irl_name, basis_size, env_fns, ep_len, None, None, None, checkpoint='{}/{}_model'.format(irl_dir, irl_name))
+    for task in tasks:
+        env = gym.make(env_names[task])
+        for n in range(n_runs):
+            obs = env.reset()
+            done = False
+            t = 0
+            while not done and t < ep_len:
+                env.render()
+                time.sleep(0.02)
+                action = irl_model.policies[task].act([obs], irl_model.sess)[0]
+                obs, reward, done, info = env.step(action)
+                t += 1
+            time.sleep(1)
+
+# works only for 2D envs
+def visualize_irl_reward(env_name, irl_dir, irl_name, irl_algo=AIRL):
     tf.reset_default_graph()
     env_fn = lambda: gym.make(env_name)
     irl_model = irl_algo(irl_name, env_fn, None, None, None, checkpoint='{}/{}_model'.format(irl_dir, irl_name))
 
     rewards = np.zeros((100, 100))
-    for i, x in zip(np.arange(100), np.linspace(-0.1, 0.6, 100)):
-        for j, y in zip(np.arange(100), np.linspace(-0.1, 0.6, 100)):
+    for i, x in zip(np.arange(100), np.linspace(-1, 1, 100)):
+        for j, y in zip(np.arange(100), np.linspace(-1, 1, 100)):
             rewards[i, j] = irl_model.discriminator.reward(np.array([[x, y, 0]]), irl_model.sess)
 
     print('scale:', np.min(rewards), '(black) to', np.max(rewards), '(white)')
@@ -117,49 +167,43 @@ def visualize_reward(env_name, irl_dir, irl_name, irl_algo=AIRL):
     plt.imshow(rewards, cmap='gray', origin='lower')
     plt.show()
 
+def visualize_shairl_reward(env_names, tasks, irl_dir, irl_name, irl_algo=SHAIRL, basis_size=5, ep_len=100):
+    tf.reset_default_graph()
+    env_fn = lambda: gym.make(env_name)
+    env_fns = [lambda: gym.make(env_name) for env_name in env_names]
+    irl_model = irl_algo(irl_name, basis_size, env_fns, ep_len, None, None, None, checkpoint='{}/{}_model'.format(irl_dir, irl_name))
+
+    for task in tasks:
+        rewards = np.zeros((100, 100))
+        for i, x in zip(np.arange(100), np.linspace(-1, 1, 100)):
+            for j, y in zip(np.arange(100), np.linspace(-1, 1, 100)):
+                rewards[i, j] = irl_model.discriminator.reward(np.array([[x, y, 0, 50]]), task, irl_model.sess)
+
+        print('scale:', np.min(rewards), '(black) to', np.max(rewards), '(white)')
+        rewards = (rewards - np.min(rewards)) / (np.max(rewards) - np.min(rewards))
+        plt.imshow(rewards, cmap='gray', origin='lower')
+        plt.show()
+
 if __name__ == '__main__':
-    # target_dict = {
-    #     0: np.array([1, 0]),
-    #     1: np.array([0, 1]),
-    #     2: np.array([-1, 0]),
-    #     3: np.array([0, -1]),
-    # }
-    # for i in range(4):
-    #     for j in range(4):
-    #         print(i, j)
-    #         env = gym.make('PointMass-v{}{}'.format(i, j))
-    #         obs, actions, next_obs = [], [], []
-    #         for _ in range(50):
-    #             rollout_obs, rollout_next_obs, rollout_actions = [], [], []
-    #             rollout_obs.append(env.reset())
-    #             for _ in range(50):
-    #                 action = 4*(target_dict[i]-rollout_obs[-1][:2]) + np.random.normal(size=2)
-    #                 ep_obs, reward, done, info = env.step(action)
-    #                 rollout_obs.append(ep_obs)
-    #                 rollout_next_obs.append(ep_obs)
-    #                 rollout_actions.append(action)
-    #             for _ in range(50):
-    #                 action = 4*(target_dict[j]-rollout_obs[-1][:2]) + np.random.normal(size=2)
-    #                 ep_obs, reward, done, info = env.step(action)
-    #                 rollout_obs.append(ep_obs)
-    #                 rollout_next_obs.append(ep_obs)
-    #                 rollout_actions.append(action)
-    #             rollout_obs = rollout_obs[:-1]
-    #             obs.append(rollout_obs)
-    #             next_obs.append(rollout_next_obs)
-    #             actions.append(rollout_actions)
-    #         obs, next_obs, actions = np.array(obs), np.array(next_obs), np.array(actions)
-    #         pickle.dump({'expert_obs': obs, 'expert_next_obs': next_obs, 'expert_actions': actions}, open('data/pointmass/expert{}{}.pkl'.format(i, j), 'wb'))
+    expert_names = []
+    env_names = []
+    for i in range(4):
+        for j in range(4):
+            expert_names.append('expert-{}{}'.format(i, j))
+            env_names.append('PointMass-v{}{}'.format(i, j))
 
     # for i in range(4):
     #     for j in range(4):
     #         print('Training', i, j)
-#             train_expert(n_iters=200, save_dir='data/pointmass', name='expert-{}'.format(i), env_name='PointMass-v{}'.format(i), use_checkpoint=False, timesteps_per_rollout=1000, ep_max_len=250, demo_timesteps=1e4)
-#             visualize_expert(env_name='PointMass-v{}'.format(i), expert_dir='data/pointmass', expert_name='expert-{}'.format(i))
+    #         train_expert(n_iters=200, save_dir='data/pointmass', name='expert-{}{}'.format(i, j), env_name='PointMass-v{}{}'.format(i, j), use_checkpoint=False, timesteps_per_rollout=1000, ep_max_len=250, demo_timesteps=1e4)
+    #         visualize_expert(env_name='PointMass-v{}{}'.format(i, j), expert_dir='data/pointmass', expert_name='expert-{}{}'.format(i, j))
 
-    # train_irl(n_iters=1000, save_dir='data/ant', name='irl', expert_name='expert', env_name='CustomAnt-v0', use_checkpoint=True)
-    # visualize_irl_policy(env_name='CustomAnt-v0', irl_dir='data/ant', irl_name='irl')
-    # visualize_reward(env_name='PointMazeRight-v0', irl_dir='data/pointmaze', irl_name='irl')
-    #
-    # train_expert(n_iters=1000, save_dir='data/ant', name='transfer_expert', env_name='DisabledAnt-v0', demo_timesteps=2500, use_checkpoint=True)
-    # visualize_expert(env_name='DisabledAnt-v0', expert_dir='data/ant', expert_name='transfer_expert', ep_max_len=250)
+    train_shairl(n_iters=250, save_dir='data/pointmass', name='shairl', expert_names=expert_names, env_names=env_names, use_checkpoint=True)
+    visualize_shairl_policy(env_names=env_names, tasks=[0,5,10,15], irl_dir='data/pointmass', irl_name='shairl')
+    visualize_shairl_reward(env_names=env_names, tasks=[0,5,10,15], irl_dir='data/pointmass', irl_name='shairl')
+
+    # tf.reset_default_graph()
+    # env_fns = [lambda: gym.make(env_name) for env_name in env_names]
+    # irl_model = SHAIRL('shairl', 5, env_fns, 100, None, None, None, checkpoint='data/pointmass/shairl_model')
+    # print(irl_model.sess.run(irl_model.discriminator.all_reward_weights))
+    # print(irl_model.sess.run(irl_model.discriminator.all_value_weights))
