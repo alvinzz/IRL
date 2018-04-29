@@ -150,7 +150,7 @@ class SHAIRLDiscriminator:
             self.all_reward_weights = tf.get_variable('reward_weights', [n_tasks, n_timesteps+1, basis_size], initializer=weight_init())
             self.all_value_weights = tf.get_variable('value_weights', [n_tasks, n_timesteps+1, basis_size], initializer=weight_init())
 
-            # rewards
+            # rewards and values
             self.reward_weights = tf.gather_nd(self.all_reward_weights, self.tasks_timesteps)
             self.value_weights = tf.gather_nd(self.all_value_weights, self.tasks_timesteps)
             self.next_value_weights = tf.gather_nd(self.all_value_weights, self.next_tasks_timesteps)
@@ -197,7 +197,7 @@ class SHAIRLDiscriminator:
         policies, global_session,
         n_iters=100, batch_size=32,
     ):
-        # expert_obs, etc. = [n_tasks * np.array(size=(#_demos, n_timesteps, ob_dim+1))]
+        # expert_obs, etc. = [n_tasks * np.array(size=(#_demos * n_timesteps, ob_dim+1))]
         # the extra ob_dim is time
 
         # add noise if the discriminator is too good to increase the signal for the generator
@@ -205,39 +205,35 @@ class SHAIRLDiscriminator:
         self.noise_params[self.last_task_losses >= -np.log(0.9)] *= 0.9
         # weird indexing here since last ob_dim is time
         for task in range(self.n_tasks):
-            task_expert_obs, task_expert_next_obs, task_expert_actions, task_policy_obs, task_policy_next_obs, task_policy_actions, noise = expert_obs[task][:, :, :self.ob_dim], expert_next_obs[task][:, :, :self.ob_dim], expert_actions[task][:, :, :self.ob_dim], policy_obs[task][:, :, :self.ob_dim], policy_next_obs[task][:, :, :self.ob_dim], policy_actions[task][:, :, :self.ob_dim], self.noise_params[task]
-            task_expert_obs += np.random.normal(loc=0, scale=noise*np.std(np.reshape(task_expert_obs, (-1, self.ob_dim)), axis=0), size=task_expert_obs.shape)
-            task_expert_next_obs += np.random.normal(loc=0, scale=noise*np.std(np.reshape(task_expert_next_obs, (-1, self.ob_dim)), axis=0), size=task_expert_next_obs.shape)
-            task_expert_actions += np.random.normal(loc=0, scale=noise*np.std(np.reshape(task_expert_actions, (-1, self.action_dim)), axis=0), size=task_expert_actions.shape)
-            task_policy_obs += np.random.normal(loc=0, scale=noise*np.std(np.reshape(task_policy_obs, (-1, self.ob_dim)), axis=0), size=task_policy_obs.shape)
-            task_policy_next_obs += np.random.normal(loc=0, scale=noise*np.std(np.reshape(task_policy_next_obs, (-1, self.ob_dim)), axis=0), size=task_policy_next_obs.shape)
-            task_policy_actions += np.random.normal(loc=0, scale=noise*np.std(np.reshape(task_policy_actions, (-1, self.action_dim)), axis=0), size=task_policy_actions.shape)
+            task_expert_obs, task_expert_next_obs, task_expert_actions, task_policy_obs, task_policy_next_obs, task_policy_actions, task_noise_param = expert_obs[task][:, :self.ob_dim], expert_next_obs[task][:, :self.ob_dim], expert_actions[task][:, :self.ob_dim], policy_obs[task][:, :self.ob_dim], policy_next_obs[task][:, :self.ob_dim], policy_actions[task][:, :self.ob_dim], self.noise_params[task]
+            task_expert_obs += np.random.normal(loc=0, scale=task_noise_param*np.std(task_expert_obs, axis=0), size=task_expert_obs.shape)
+            task_expert_next_obs += np.random.normal(loc=0, scale=task_noise_param*np.std(task_expert_next_obs, axis=0), size=task_expert_next_obs.shape)
+            task_expert_actions += np.random.normal(loc=0, scale=task_noise_param*np.std(task_expert_actions, axis=0), size=task_expert_actions.shape)
+            task_policy_obs += np.random.normal(loc=0, scale=task_noise_param*np.std(task_policy_obs, axis=0), size=task_policy_obs.shape)
+            task_policy_next_obs += np.random.normal(loc=0, scale=task_noise_param*np.std(task_policy_next_obs, axis=0), size=task_policy_next_obs.shape)
+            task_policy_actions += np.random.normal(loc=0, scale=task_noise_param*np.std(task_policy_actions, axis=0), size=task_policy_actions.shape)
 
         policy_action_log_probs = []
         for task in range(self.n_tasks):
-            task_policy_obs, task_policy_actions, policy = np.reshape(policy_obs[task], (-1, self.ob_dim+1)), np.reshape(policy_actions[task], (-1, self.action_dim)), policies[task]
+            task_policy_obs, task_policy_actions, policy = policy_obs[task], policy_actions[task], policies[task]
             policy_action_log_probs.append(
-                np.reshape(
-                    global_session.run(
-                        policy.action_log_probs,
-                        feed_dict={policy.obs: task_policy_obs, policy.actions: task_policy_actions}
-                    ),
-                    (-1, self.n_timesteps, 1)
-                )
+                global_session.run(
+                    policy.action_log_probs,
+                    feed_dict={policy.obs: task_policy_obs, policy.actions: task_policy_actions}
+                ),
             )
+        policy_action_log_probs = np.expand_dims(policy_action_log_probs, axis=2)
 
         expert_action_log_probs_under_policy = []
         for task in range(self.n_tasks):
-            task_expert_obs, task_expert_actions, policy = np.reshape(expert_obs[task], (-1, self.ob_dim+1)), np.reshape(expert_actions[task], (-1, self.action_dim)), policies[task]
+            task_expert_obs, task_expert_actions, policy = expert_obs[task], expert_actions[task], policies[task]
             expert_action_log_probs_under_policy.append(
-                np.reshape(
-                    global_session.run(
-                        policy.action_log_probs,
-                        feed_dict={policy.obs: task_expert_obs, policy.actions: task_expert_actions}
-                    ),
-                    (-1, self.n_timesteps, 1)
-                )
+                global_session.run(
+                    policy.action_log_probs,
+                    feed_dict={policy.obs: task_expert_obs, policy.actions: task_expert_actions}
+                ),
             )
+        expert_action_log_probs_under_policy = np.expand_dims(expert_action_log_probs_under_policy, axis=2)
 
         mb_labels = np.concatenate((np.ones((batch_size*self.n_tasks, 1)), np.zeros((batch_size*self.n_tasks, 1))))
         for iter_ in range(n_iters):
@@ -249,6 +245,7 @@ class SHAIRLDiscriminator:
                 feed_dict={self.obs: mb_obs, self.next_obs: mb_next_obs, self.policy_action_log_probs: mb_policy_action_log_probs, self.tasks_timesteps: mb_tasks_timesteps, self.labels: mb_labels}
             )
 
+        # collect the part of each minibatch corresponding to a certain task
         for task in range(self.n_tasks):
             mb_task_obs, mb_task_next_obs, mb_task_policy_action_log_probs, mb_task_tasks_timesteps, mb_task_labels = np.concatenate((mb_obs[task*batch_size:(task+1)*batch_size], mb_obs[(task+self.n_tasks)*batch_size:(task+self.n_tasks+1)*batch_size])), np.concatenate((mb_next_obs[task*batch_size:(task+1)*batch_size], mb_next_obs[(task+self.n_tasks)*batch_size:(task+self.n_tasks+1)*batch_size])), np.concatenate((mb_policy_action_log_probs[task*batch_size:(task+1)*batch_size], mb_policy_action_log_probs[(task+self.n_tasks)*batch_size:(task+self.n_tasks+1)*batch_size])), np.concatenate((mb_tasks_timesteps[task*batch_size:(task+1)*batch_size], mb_tasks_timesteps[(task+self.n_tasks)*batch_size:(task+self.n_tasks+1)*batch_size])), np.concatenate((mb_labels[task*batch_size:(task+1)*batch_size], mb_labels[(task+self.n_tasks)*batch_size:(task+self.n_tasks+1)*batch_size]))
             self.last_task_losses[task] = global_session.run(

@@ -85,7 +85,6 @@ class AIRL:
                 self.policy, self.sess
             )
 
-# ASSUMES EPISODES ALL EPISODES ARE SAME LEMGTH AND CANNOT TERMINATE EARLY!
 class SHAIRL:
     def __init__(self,
         name, basis_size,
@@ -129,9 +128,9 @@ class SHAIRL:
                 self.policies[task].optimizer.train(obs, next_obs, actions, action_log_probs, values, value_targets, advantages, self.sess)
 
                 if obs_buffer[task] is None:
-                    obs_buffer[task], next_obs_buffer[task], actions_buffer[task] = np.reshape(obs, (-1, ep_len, self.ob_dim+1)), np.reshape(next_obs, (-1, ep_len, self.ob_dim+1)), np.reshape(actions, (-1, ep_len, self.action_dim))
+                    obs_buffer[task], next_obs_buffer[task], actions_buffer[task] = obs, next_obs, actions
                 else:
-                    obs_buffer[task], next_obs_buffer[task], actions_buffer[task] = np.concatenate((obs_buffer[task], np.reshape(obs, (-1, ep_len, self.ob_dim+1)))), np.concatenate((next_obs_buffer[task], np.reshape(next_obs, (-1, ep_len, self.ob_dim+1)))), np.concatenate((actions_buffer[task], np.reshape(actions, (-1, ep_len, self.action_dim))))
+                    obs_buffer[task], next_obs_buffer[task], actions_buffer[task] = np.concatenate((obs_buffer[task], obs)), np.concatenate((next_obs_buffer[task], next_obs)), np.concatenate((actions_buffer[task], actions))
                     obs_buffer[task], next_obs_buffer[task], actions_buffer[task] = obs_buffer[task][-20*batch_timesteps:], next_obs_buffer[task][-20*batch_timesteps:], actions_buffer[task][-20*batch_timesteps:]
 
             self.discriminator.train(
