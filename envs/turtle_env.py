@@ -4,6 +4,27 @@ from gym.utils import seeding
 import numpy as np
 from os import path
 import pdb
+import tty, termios, sys
+
+def getch():
+    """getch() -> key character
+
+    Read a single keypress from stdin and return the resulting character. 
+    Nothing is echoed to the console. This call will block if a keypress 
+    is not already available, but will not wait for Enter to be pressed. 
+
+    If the pressed key was a modifier key, nothing will be detected; if
+    it were a special function key, it may return the first character of
+    of an escape sequence, leaving additional characters in the buffer.
+    """
+    fd = sys.stdin.fileno()
+    old_settings = termios.tcgetattr(fd)
+    try:
+        tty.setraw(fd)
+        ch = sys.stdin.read(1)
+    finally:
+        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+    return ch
 
 class TurtleEnv(gym.Env):
     metadata = {
@@ -26,6 +47,8 @@ class TurtleEnv(gym.Env):
         self.action_space = spaces.Box(low=-high, high=high)
 
         # Range of coordinates and orientation angles which define the state space.
+        # Turtle coords, turtle angle, target coords,
+        # and angle between current orientation and orientation which points at target.
         self.observation_space = spaces.Box(low=np.array([0, 0, -np.pi, 0, 0, -np.pi]), high=np.array([self.width, self.height, np.pi, self.target[0], self.target[1], np.pi]))
 
         self.seed()
@@ -83,26 +106,85 @@ class TurtleEnv(gym.Env):
         return angle
 
     def render(self, mode='human'):
-
+        turtle_radius = 0.03
+        target_radius = 0.02
+        arm_length = 0.06
         if self.viewer is None:
             from gym.envs.classic_control import rendering
             self.viewer = rendering.Viewer(500,500)
-            # self.viewer.set_bounds(-2.2,2.2,-2.2,2.2)
             self.viewer.set_bounds(0, self.width, 0, self.height)
 
-            turtle = rendering.make_circle(0.03)
+            turtle = rendering.make_circle(turtle_radius)
             turtle.set_color(0, 0, 0)
             self.turtle_transform = rendering.Transform()
             turtle.add_attr(self.turtle_transform)
             self.viewer.add_geom(turtle)
 
-            target = rendering.make_circle(0.01)
+            left = rendering.make_capsule(arm_length, .005)
+            left.set_color(.8, .3, .3)
+            self.left_arm = rendering.Transform()
+            left.add_attr(self.left_arm)
+            self.viewer.add_geom(left)
+
+            right = rendering.make_capsule(arm_length, .005)
+            right.set_color(.8, .3, .3)
+            self.right_arm = rendering.Transform()
+            right.add_attr(self.right_arm)
+            self.viewer.add_geom(right)
+
+            target = rendering.make_circle(target_radius)
             target.set_color(0, 16, 0)
             self.target_transform = rendering.Transform()
             target.add_attr(self.target_transform)
             self.viewer.add_geom(target)
 
         self.turtle_transform.set_translation(self.state[0], self.state[1])
+
+        # Left and right arm orientation.
+        th = self.state[2]
+        rotation = np.array([[np.cos(th), -np.sin(th)],[np.sin(th), np.cos(th)]])
+
+        left_offset = np.dot(rotation, np.array([[0], [turtle_radius]]))
+        self.left_arm.set_translation(self.state[0] + left_offset[0][0], self.state[1] + left_offset[1][0])
+        self.left_arm.set_rotation(self.state[2])
+
+        right_offset = np.dot(rotation, np.array([[0], [-turtle_radius]]))
+        self.right_arm.set_translation(self.state[0] + right_offset[0][0], self.state[1] + right_offset[1][0])
+        self.right_arm.set_rotation(self.state[2])
+
+
+        # Handle collision with the turtlebot.
+        # If the distance between the turtlebot and the target is less than the sum of the radii...
+        if np.linalg.norm(self.state[0:2] - self.target) < turtle_radius + target_radius:
+            overlap = np.linalg.norm(self.state[0:2] - self.target) - (turtle_radius + target_radius)
+            offset = overlap * (self.state[0:2] - self.target) / np.linalg.norm(self.state[0:2] - self.target)
+            self.target += offset
+
+        # Left arm collisions
+        s1 = np.array([self.state[0] + left_offset[0][0], self.state[1] + left_offset[1][0]])
+        s2 = s1 + np.dot(rotation, np.array([[arm_length], [0]])).T[0]
+
+        t = np.dot(self.target - s1, s2 - s1) / (np.linalg.norm(s2 - s1) ** 2)
+        t = min(max(t, 0), 1)
+        min_dist_vec = self.target - (s1 + t*(s2 - s1))
+        left_dist = np.linalg.norm(min_dist_vec)
+        if left_dist < target_radius:
+            overlap = target_radius - left_dist
+            self.target += overlap * min_dist_vec / np.linalg.norm(min_dist_vec)
+
+
+        # Right arm collisions
+        s1 = np.array([self.state[0] + right_offset[0][0], self.state[1] + right_offset[1][0]])
+        s2 = s1 + np.dot(rotation, np.array([[arm_length], [0]])).T[0]
+
+        t = np.dot(self.target - s1, s2 - s1) / (np.linalg.norm(s2 - s1) ** 2)
+        t = min(max(t, 0), 1)
+        min_dist_vec = self.target - (s1 + t*(s2 - s1))
+        right_dist = np.linalg.norm(min_dist_vec)
+        if right_dist < target_radius:
+            overlap = target_radius - right_dist
+            self.target += overlap * min_dist_vec / np.linalg.norm(min_dist_vec)
+
         self.target_transform.set_translation(self.target[0], self.target[1])
         return self.viewer.render(return_rgb_array = mode=='rgb_array')
 
@@ -112,6 +194,19 @@ class TurtleEnv(gym.Env):
 if __name__ == '__main__':
     env = TurtleEnv()
     env.reset()
-    for _ in range(100):
+    print("Press 'q' to exit...\n")
+    while True:
         env.render()
-env.step((1, 10*env._get_angle()))
+        command = getch()
+        if command == 'q':
+            break
+        if command == 'w':
+            env.step((.1, 0))
+        elif command == 's':
+            env.step((-.1, 0))
+        elif command == 'a':
+            env.step((0, 3))
+        elif command == 'd':
+            env.step((0, -3))
+        
+        # env.step((.1, 10*env._get_angle()))

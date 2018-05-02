@@ -26,6 +26,7 @@ def register_custom_envs():
             kwargs={'target': 2})
     register(id='PointMass-v3', entry_point='IRL.envs.pointmass:PointMass',
             kwargs={'target': 3})
+    register(id='Turtle-v0', entry_point='IRL.envs.turtle_env:TurtleEnv')
 
     # A modified ant which flips over less and learns faster via TRPO
     register(id='CustomAnt-v0', entry_point='IRL.envs.ant_env:CustomAntEnv',
