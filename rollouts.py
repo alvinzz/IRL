@@ -77,7 +77,7 @@ def collect_and_process_rollouts(
     # can also apply advantage normalization per minibatch
     advantages = (advantages - np.mean(advantages)) / (np.std(advantages) + 1e-8)
 
-    return obs, next_obs, actions, action_log_probs, values, value_targets, advantages
+    return obs, next_obs, actions, action_log_probs, values, value_targets, advantages, rewards
 
 def get_value_targets_and_advantages(
     rewards, values, last_value,

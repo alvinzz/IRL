@@ -32,7 +32,7 @@ class RL:
         for iter_ in range(n_iters):
             print('______________')
             print('Iteration', iter_)
-            obs, next_obs, actions, action_log_probs, values, value_targets, advantages = collect_and_process_rollouts(self.env_fn, self.policy, reward_fn, self.sess, batch_timesteps, max_ep_len)
+            obs, next_obs, actions, action_log_probs, values, value_targets, advantages, rewards = collect_and_process_rollouts(self.env_fn, self.policy, reward_fn, self.sess, batch_timesteps, max_ep_len)
             self.policy.optimizer.train(obs, next_obs, actions, action_log_probs, values, value_targets, advantages, self.sess)
 
 class AIRL:
@@ -70,7 +70,7 @@ class AIRL:
         for iter_ in range(n_iters):
             print('______________')
             print('Iteration', iter_)
-            obs, next_obs, actions, action_log_probs, values, value_targets, advantages = collect_and_process_rollouts(self.env_fn, self.policy, reward_fn, self.sess, batch_timesteps, max_ep_len)
+            obs, next_obs, actions, action_log_probs, values, value_targets, advantages, rewards = collect_and_process_rollouts(self.env_fn, self.policy, reward_fn, self.sess, batch_timesteps, max_ep_len)
 
             if obs_buffer is None:
                 obs_buffer, next_obs_buffer, actions_buffer = obs, next_obs, actions
@@ -116,16 +116,24 @@ class SHAIRL:
             if checkpoint:
                 self.saver.restore(self.sess, checkpoint)
 
-    def train(self, n_iters, reward_fns, batch_timesteps=1000, ep_len=100):
-        # AIRL: keep replay buffer of past 20 iterations of policies
+    def train(self, n_iters, reward_fns, batch_timesteps=1000, ep_len=100, max_policy_iters=1000):
+        # SHAIRL: keep replay buffer of past 20 iterations of policies
         obs_buffer, next_obs_buffer, actions_buffer = [None for _ in range(self.n_tasks)], [None for _ in range(self.n_tasks)], [None for _ in range(self.n_tasks)]
         for iter_ in range(n_iters):
             print('______________')
             print('Iteration', iter_)
             for task in range(self.n_tasks):
                 print('Task', task)
-                obs, next_obs, actions, action_log_probs, values, value_targets, advantages = collect_and_process_rollouts(self.env_fns[task], self.policies[task], reward_fns[task], self.sess, batch_timesteps, ep_len)
+                # train once
+                obs, next_obs, actions, action_log_probs, values, value_targets, advantages, rewards = collect_and_process_rollouts(self.env_fns[task], self.policies[task], reward_fns[task], self.sess, batch_timesteps, ep_len)
                 self.policies[task].optimizer.train(obs, next_obs, actions, action_log_probs, values, value_targets, advantages, self.sess)
+                # then train until we fool discriminator over ~50% of the time (not exact due to entropy term in reward)
+                # give up after max_policy_iters training iterations
+                train_iters = 1
+                while np.mean(rewards) < np.log(0.5) and train_iters < max_policy_iters:
+                    self.policies[task].optimizer.train(obs, next_obs, actions, action_log_probs, values, value_targets, advantages, self.sess)
+                    obs, next_obs, actions, action_log_probs, values, value_targets, advantages, rewards = collect_and_process_rollouts(self.env_fns[task], self.policies[task], reward_fns[task], self.sess, batch_timesteps, ep_len)
+                    train_iters += 1
 
                 if obs_buffer[task] is None:
                     obs_buffer[task], next_obs_buffer[task], actions_buffer[task] = obs, next_obs, actions
@@ -136,5 +144,5 @@ class SHAIRL:
             self.discriminator.train(
                 self.expert_obs, self.expert_next_obs, self.expert_actions,
                 obs_buffer, next_obs_buffer, actions_buffer,
-                self.policies, self.sess
+                self.policies, self.sess,
             )
