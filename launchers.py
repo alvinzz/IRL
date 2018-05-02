@@ -242,6 +242,7 @@ def visualize_shairl_basis(env_names, irl_dir, irl_name, irl_algo=SHAIRL, basis_
         plt.show()
 
 if __name__ == '__main__':
+<<<<<<< HEAD
     expert_names = []
     env_names = []
     for i in range(4):
@@ -273,3 +274,21 @@ if __name__ == '__main__':
     # irl_model = SHAIRL('shairl_toy', 5, env_fns, 100, None, None, None, checkpoint='data/pointmass/shairl_toy_model')
     # print(irl_model.sess.run(irl_model.discriminator.all_reward_weights))
     # print(irl_model.sess.run(irl_model.discriminator.all_value_weights))
+=======
+    # for i in range(1):
+    #     env = gym.make('PointMass-v{}'.format(i))
+    #     for _ in range(25):
+    #         env.step((1, 0))
+    #         env.render()
+    #     time.sleep(1)
+    # train_expert(n_iters=1500, save_dir='data/ant', name='expert', env_name='CustomAnt-v0', use_checkpoint=True)
+    # visualize_expert(env_name='CustomAnt-v0', expert_dir='data/ant', expert_name='expert')
+    #
+    # train_irl(n_iters=1000, save_dir='data/ant', name='irl', expert_name='expert', env_name='CustomAnt-v0', use_checkpoint=True)
+    # visualize_irl_policy(env_name='CustomAnt-v0', irl_dir='data/ant', irl_name='irl')
+    # visualize_reward(env_name='PointMazeRight-v0', irl_dir='data/pointmaze', irl_name='irl')
+    #
+    # train_expert(n_iters=1000, save_dir='data/ant', name='transfer_expert', env_name='DisabledAnt-v0', demo_timesteps=2500, use_checkpoint=True)
+    # visualize_expert(env_name='DisabledAnt-v0', expert_dir='data/ant', expert_name='transfer_expert', ep_max_len=250)
+    pass
+>>>>>>> c2a3eb1b185402ef69dde539af57d170cf1cb358
