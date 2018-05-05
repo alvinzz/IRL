@@ -1,8 +1,8 @@
 from policies import GaussianMLPPolicy
-from discriminators import AIRLDiscriminator, SHAIRLDiscriminator
+from discriminators import *
 import tensorflow as tf
 import numpy as np
-from rollouts import collect_and_process_rollouts
+from rollouts import *
 from rewards import make_ent_env_reward_fn
 
 class RL:
@@ -103,7 +103,7 @@ class SHAIRL:
             self.expert_next_obs = expert_next_obs
             self.expert_actions = expert_actions
 
-            self.policies = [GaussianMLPPolicy('policy{}'.format(task), self.ob_dim+1, self.action_dim) for task in range(self.n_tasks)]
+            self.policies = [GaussianMLPPolicy('policy{}'.format(task), self.ob_dim+1, self.action_dim, learn_vars=False) for task in range(self.n_tasks)]
             self.discriminator = SHAIRLDiscriminator('discriminator', self.ob_dim, self.action_dim, self.n_tasks, self.n_timesteps, basis_size)
 
             self.saver = tf.train.Saver()
@@ -116,7 +116,7 @@ class SHAIRL:
             if checkpoint:
                 self.saver.restore(self.sess, checkpoint)
 
-    def train(self, n_iters, reward_fns, batch_timesteps=1000, ep_len=100, max_policy_iters=1000):
+    def train(self, n_iters, reward_fns, batch_timesteps=1000, ep_len=100, max_policy_iters=100):
         # SHAIRL: keep replay buffer of past 20 iterations of policies
         obs_buffer, next_obs_buffer, actions_buffer = [None for _ in range(self.n_tasks)], [None for _ in range(self.n_tasks)], [None for _ in range(self.n_tasks)]
         for iter_ in range(n_iters):
@@ -124,15 +124,21 @@ class SHAIRL:
             print('Iteration', iter_)
             for task in range(self.n_tasks):
                 print('Task', task)
-                # train once
-                obs, next_obs, actions, action_log_probs, values, value_targets, advantages, rewards = collect_and_process_rollouts(self.env_fns[task], self.policies[task], reward_fns[task], self.sess, batch_timesteps, ep_len)
-                self.policies[task].optimizer.train(obs, next_obs, actions, action_log_probs, values, value_targets, advantages, self.sess)
-                # then train until we fool discriminator over ~50% of the time (not exact due to entropy term in reward)
-                # give up after max_policy_iters training iterations
-                train_iters = 1
-                while np.mean(rewards) < np.log(0.5) and train_iters < max_policy_iters:
+                # evaluate policy
+                obs, next_obs, actions, action_log_probs, values, value_targets, advantages, rewards = collect_and_process_rollouts(self.env_fns[task], self.policies[task], reward_fns[task], self.sess, batch_timesteps, ep_len, shairl_timestep_normalization=True)
+                avg_reward = np.mean(rewards)
+                log_var = np.log(np.clip(1*(0.5 - np.exp(avg_reward)), 0.1, 1))
+                # train until we fool discriminator over 50% of the time
+                # give up after max_policy_iters iterations
+                train_iters = 0
+                while avg_reward < np.log(0.5) and train_iters < max_policy_iters:
+                    assign_op = self.policies[task].log_vars.assign(np.tile(log_var, [1, self.action_dim]))
+                    self.sess.run(assign_op)
                     self.policies[task].optimizer.train(obs, next_obs, actions, action_log_probs, values, value_targets, advantages, self.sess)
-                    obs, next_obs, actions, action_log_probs, values, value_targets, advantages, rewards = collect_and_process_rollouts(self.env_fns[task], self.policies[task], reward_fns[task], self.sess, batch_timesteps, ep_len)
+                    obs, next_obs, actions, action_log_probs, values, value_targets, advantages, rewards = collect_and_process_rollouts(self.env_fns[task], self.policies[task], reward_fns[task], self.sess, batch_timesteps, ep_len, shairl_timestep_normalization=True)
+                    # avg_reward = 0.6*avg_reward + 0.4*np.mean(rewards)
+                    avg_reward = np.mean(rewards)
+                    log_var = np.log(np.clip(1*(0.5 - np.exp(avg_reward)), 0.1, 1))
                     train_iters += 1
 
                 if obs_buffer[task] is None:
@@ -145,4 +151,58 @@ class SHAIRL:
                 self.expert_obs, self.expert_next_obs, self.expert_actions,
                 obs_buffer, next_obs_buffer, actions_buffer,
                 self.policies, self.sess,
+            )
+
+class IntentionGAN:
+    def __init__(self,
+        name,
+        env_fn,
+        n_intentions,
+        expert_obs, expert_actions,
+        checkpoint=None
+    ):
+        with tf.variable_scope(name):
+            self.env_fn = env_fn
+            self.ob_dim = env_fn().observation_space.shape[0]
+            self.action_dim = env_fn().action_space.shape[0]
+            self.n_intentions = n_intentions
+
+            self.expert_obs = expert_obs
+            self.expert_actions = expert_actions
+
+            self.policy = GaussianMLPPolicy('policy', self.ob_dim+self.n_intentions, self.action_dim)
+            self.discriminator = StandardDiscriminator('discriminator', self.ob_dim, self.action_dim)
+            self.intention_inferer = IntentionDiscriminator('intention_inferer', self.ob_dim, self.action_dim, self.n_intentions)
+
+            self.saver = tf.train.Saver()
+
+            config = tf.ConfigProto()
+            config.gpu_options.allow_growth=True
+            self.sess = tf.Session(config=config)
+            self.sess.run(tf.global_variables_initializer())
+
+            if checkpoint:
+                self.saver.restore(self.sess, checkpoint)
+
+    def train(self, n_iters, reward_fn, batch_timesteps=2000, max_ep_len=625):
+        # keep replay buffer
+        obs_buffer, actions_buffer = None, None
+        for iter_ in range(n_iters):
+            print('______________')
+            print('Iteration', iter_)
+            obs, intentions, intention_obs, actions, action_log_probs, values, value_targets, advantages, rewards = collect_and_process_intention_rollouts(self.env_fn, self.policy, reward_fn, self.n_intentions, self.sess, batch_timesteps, max_ep_len)
+
+            if obs_buffer is None:
+                obs_buffer, actions_buffer = obs, actions
+            else:
+                obs_buffer, actions_buffer = np.concatenate((obs_buffer, obs)), np.concatenate((actions_buffer, actions))
+
+            self.policy.optimizer.train(intention_obs, None, actions, action_log_probs, values, value_targets, advantages, self.sess)
+            self.discriminator.train(
+                self.expert_obs, self.expert_actions,
+                obs_buffer, actions_buffer,
+                self.policy, self.sess
+            )
+            self.intention_inferer.train(
+                obs, actions, intentions, self.sess
             )

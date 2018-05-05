@@ -1,2 +1,2 @@
-model_checkpoint_path: "shairl_44_model"
-all_model_checkpoint_paths: "shairl_44_model"
+model_checkpoint_path: "shairl_22_model"
+all_model_checkpoint_paths: "shairl_22_model"

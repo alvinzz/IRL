@@ -24,8 +24,8 @@ class PointMass(mujoco_env.MujocoEnv, utils.EzPickle):
         target_num = (self.episode_length * len(self.targets)) // self.max_episode_length
         vec_dist = self.get_body_com("particle") - self.get_body_com("target_{}".format(self.targets[target_num]))
 
-        reward_dist = - np.linalg.norm(vec_dist)  # particle to target
-        reward_ctrl = - np.square(a).sum()
+        reward_dist = -np.linalg.norm(vec_dist)  # particle to target
+        reward_ctrl = -np.square(a).sum()
         reward = reward_dist + 0.000 * reward_ctrl
 
         self.do_simulation(a, self.frame_skip)
@@ -40,7 +40,6 @@ class PointMass(mujoco_env.MujocoEnv, utils.EzPickle):
 
     def reset_model(self):
         qpos = self.init_qpos
-        self.episode_length = 0
         qvel = self.init_qvel + self.np_random.uniform(size=self.model.nv, low=-0.01, high=0.01)
         self.set_state(qpos, qvel)
         self.episode_length = 0

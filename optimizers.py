@@ -5,8 +5,8 @@ from utils import batchify
 class ClipPPO:
     def __init__(self,
         ob_dim, action_dim, policy,
-        clip_param=0.2, max_grad_norm=0.5,
-        optimizer=tf.train.AdamOptimizer, learning_rate=3e-4, optimizer_epsilon=1e-5
+        clip_param=0.1, max_grad_norm=0.1,
+        optimizer=tf.train.AdamOptimizer, learning_rate=1e-4, optimizer_epsilon=1e-5
     ):
         self.optimizer = optimizer(learning_rate=learning_rate, epsilon=optimizer_epsilon)
 
@@ -21,6 +21,7 @@ class ClipPPO:
         self.actions = self.policy.actions
         self.action_log_probs = self.policy.action_log_probs
         self.values = self.policy.values
+        self.log_vars = self.policy.log_vars
 
         # clipped policy loss
         self.action_prob_ratio = tf.exp(tf.expand_dims(self.action_log_probs, axis=1) - self.old_action_log_probs)
