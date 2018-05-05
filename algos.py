@@ -75,7 +75,7 @@ class AIRL:
             if obs_buffer is None:
                 obs_buffer, next_obs_buffer, actions_buffer = obs, next_obs, actions
             else:
-                obs_buffer, next_obs_buffer, actions_buffer = np.concatenate((obs_buffer, obs)), np.concatenate((next_obs_buffer, next_obs)), np.concatenate((actions_buffer, actions))
+                obs_bufer, next_obs_buffer, actions_buffer = np.concatenate((obs_buffer, obs)), np.concatenate((next_obs_buffer, next_obs)), np.concatenate((actions_buffer, actions))
                 obs_buffer, next_obs_buffer, actions_buffer = obs_buffer[-20*batch_timesteps:], next_obs_buffer[-20*batch_timesteps:], actions_buffer[-20*batch_timesteps:]
 
             self.policy.optimizer.train(obs, next_obs, actions, action_log_probs, values, value_targets, advantages, self.sess)
