@@ -1,8 +1,8 @@
 import numpy as np
 import pickle
 import gym
-from envs import *
-register_custom_envs()
+# from envs import *
+# register_custom_envs()
 
 def sample_minibatch(obs, next_obs, action_log_probs, batch_size):
     random_indices = np.random.randint(0, obs.shape[0], size=batch_size)

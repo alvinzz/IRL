@@ -284,10 +284,59 @@ def visualize_shairl_basis(env_names, irl_dir, irl_name, irl_algo=SHAIRL, basis_
         plt.imshow(basis[:, :, i].T, cmap='gray', origin='lower')
         plt.show()
 
+def test_turtle(env_name, n_intentions, save_dir, irl_name, intentions, irl_algo=IntentionGAN, n_runs=1):
+    tf.reset_default_graph()
+    env_fn = lambda: gym.make(env_name)
+    irl_model = irl_algo(irl_name, env_fn, n_intentions, None, None, checkpoint='{}/{}_model'.format(save_dir, irl_name))
+    env = gym.make(env_name)
+    for n in range(n_runs):
+        ob = env.reset()
+        t = 0
+        one_hot_intention = np.zeros(n_intentions)
+        one_hot_intention[intentions[0]] = 1
+        print(intentions[0])
+        time.sleep(1)
+        while ob[0] > 0.01 and t < 1250:
+            env.render()
+            action = irl_model.policy.act([np.concatenate((ob, one_hot_intention))], irl_model.sess)[0]
+            ob, reward, done, info = env.step(action)
+            t += 1
+        t = 0
+        one_hot_intention = np.zeros(n_intentions)
+        one_hot_intention[intentions[1]] = 1
+        print(intentions[1])
+        time.sleep(1)
+        while ob[2] > 0.095 and t < 250:
+            env.render()
+            action = irl_model.policy.act([np.concatenate((ob, one_hot_intention))], irl_model.sess)[0]
+            ob, reward, done, info = env.step(action)
+            t += 1
+        t = 0
+        one_hot_intention = np.zeros(n_intentions)
+        one_hot_intention[intentions[2]] = 1
+        print(intentions[2])
+        time.sleep(1)
+        while ob[2] > 0.095 and t < 100:
+            env.render()
+            action = irl_model.policy.act([np.concatenate((ob, one_hot_intention))], irl_model.sess)[0]
+            ob, reward, done, info = env.step(action)
+            t += 1
+        # t = 0
+        # one_hot_intention = np.zeros(n_intentions)
+        # one_hot_intention[intentions[3]] = 1
+        # print(intentions[3])
+        # time.sleep(1)
+        # while ob[4] > 0.095 and t < 500:
+        #     env.render()
+        #     action = irl_model.policy.act([np.concatenate((ob, one_hot_intention))], irl_model.sess)[0]
+        #     ob, reward, done, info = env.step(action)
+        #     t += 1
+
 if __name__ == '__main__':
-    for _ in range(20000):
-        train_intention(n_iters=1000, n_intentions=4, save_dir='data/turtle', name='intention2', expert_name='intention_expert', env_name='Turtle-v0', use_checkpoint=True)
-    # visualize_intention_policy(env_name='Turtle-v0', n_intentions=4, save_dir='data/turtle', irl_name='intention2', intentions=[0,1,2,3])
+    # for _ in range(20000):
+        # train_intention(n_iters=100, n_intentions=4, save_dir='data/turtle', name='intention2', expert_name='intention_expert', env_name='Turtle-v0', use_checkpoint=True)
+    visualize_intention_policy(env_name='Turtle-v0', n_intentions=4, save_dir='data/turtle', irl_name='intention2', intentions=[0,1,2,3], n_runs=1, ep_max_len=625)
+    # test_turtle(env_name='Turtle-v0', n_intentions=4, save_dir='data/turtle', irl_name='intention2', intentions=[2,0,1,1], n_runs=3)
 
     # expert_names = []
     # env_names = []

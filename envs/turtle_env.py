@@ -232,12 +232,19 @@ class TurtleEnv(gym.Env):
         if self.viewer: self.viewer.close()
 
 if __name__ == '__main__':
+    from algos import IntentionGAN
+    import tensorflow as tf
+    tf.reset_default_graph()
+    env_fn = lambda: gym.make('Turtle-v0')
+    irl_model = IntentionGAN('intention2', env_fn, 4, None, None, checkpoint='{}/{}_model'.format('data/turtle', 'intention2'))
+    env = gym.make(env_name)
+
     frequencies = np.zeros(4)
     env = TurtleEnv()
     obs = []
     actions = []
     next_obs = []
-    for iter_ in range(100):
+    for iter_ in range(1):
         print(iter_)
         ob = env.reset()
         obs.append(ob)
@@ -248,6 +255,7 @@ if __name__ == '__main__':
             ob, _, _, _ = env.step(action)
             obs.append(ob)
             actions.append(action)
+            print(irl_model.intention_inferer.intention_prob([ob], [action], irl_model.sess))
             next_obs.append(ob)
             frequencies[0] += 1
         while np.abs(ob[3]) > 0.01:
@@ -256,6 +264,7 @@ if __name__ == '__main__':
             ob, _, _, _ = env.step(action)
             obs.append(ob)
             actions.append(action)
+            print(irl_model.intention_inferer.intention_prob([ob], [action], irl_model.sess))
             next_obs.append(ob)
             frequencies[1] += 1
         while ob[2] > 0.095:
@@ -264,6 +273,7 @@ if __name__ == '__main__':
             ob, _, _, _ = env.step(action)
             obs.append(ob)
             actions.append(action)
+            print(irl_model.intention_inferer.intention_prob([ob], [action], irl_model.sess))
             next_obs.append(ob)
             frequencies[2] += 1
         while ob[4] > 0.095:
@@ -272,6 +282,7 @@ if __name__ == '__main__':
             ob, _, _, _ = env.step(action)
             obs.append(ob)
             actions.append(action)
+            print(irl_model.intention_inferer.intention_prob([ob], [action], irl_model.sess))
             next_obs.append(ob)
             frequencies[3] += 1
         obs = obs[:-1]
