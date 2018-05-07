@@ -82,7 +82,8 @@ class TurtleEnv(gym.Env):
             new_th -= 2*np.pi
         self.state = np.array([new_x, new_y, new_th])
 
-        return self._get_obs(), 0, False, {}
+        done = (np.linalg.norm(self.target - self.box) < 0.015)
+        return self._get_obs(), 0, done, {}
 
     def reset(self):
         # Start in the middle of the board with an angle of 0
@@ -108,7 +109,7 @@ class TurtleEnv(gym.Env):
             self._get_target_angle()
         ])
 
-    def _get_box_face_coords(self, box_face_dist=0.20):
+    def _get_box_face_coords(self, box_face_dist=0.30):
         angle = self.start_box_angle + np.pi + self.box_angle
         offset = box_face_dist * np.array([np.cos(angle), np.sin(angle)])
         return self.box + offset
@@ -232,61 +233,76 @@ class TurtleEnv(gym.Env):
         if self.viewer: self.viewer.close()
 
 if __name__ == '__main__':
-    from algos import IntentionGAN
-    import tensorflow as tf
-    tf.reset_default_graph()
-    env_fn = lambda: gym.make('Turtle-v0')
-    irl_model = IntentionGAN('intention2', env_fn, 4, None, None, checkpoint='{}/{}_model'.format('data/turtle', 'intention2'))
-    env = gym.make(env_name)
-
+    # from algos import IntentionGAN
+    # import tensorflow as tf
+    # tf.reset_default_graph()
+    # env_fn = lambda: gym.make('Turtle-v0')
+    # irl_model = IntentionGAN('intention2', env_fn, 4, None, None, checkpoint='{}/{}_model'.format('data/turtle', 'intention2'))
+    # env = gym.make(env_name)
+    import time
     frequencies = np.zeros(4)
     env = TurtleEnv()
     obs = []
     actions = []
     next_obs = []
+    max_ep_len = 0
     for iter_ in range(1):
         print(iter_)
         ob = env.reset()
         obs.append(ob)
+        ep_len = 0
+        env.render()
+        input()
         # print("Press 'q' to exit...\n")
         while ob[0] > 0.01:
-            # env.render()
-            action = (np.clip(ob[0], 0.01, 0.1), ob[1])
+            env.render()
+            action = (np.clip(ob[0], 0.01, 0.1), np.clip(ob[1], -0.8, 0.8))
             ob, _, _, _ = env.step(action)
             obs.append(ob)
             actions.append(action)
-            print(irl_model.intention_inferer.intention_prob([ob], [action], irl_model.sess))
+            # print(irl_model.intention_inferer.intention_prob([ob], [action], irl_model.sess))
             next_obs.append(ob)
             frequencies[0] += 1
-        while np.abs(ob[3]) > 0.01:
-            # env.render()
-            action = (0, ob[3])
+            ep_len += 1
+        input()
+        while np.abs(ob[3]) > 0.05:
+            env.render()
+            action = (0, np.clip(ob[3], -0.8, 0.8))
             ob, _, _, _ = env.step(action)
             obs.append(ob)
             actions.append(action)
-            print(irl_model.intention_inferer.intention_prob([ob], [action], irl_model.sess))
+            # print(irl_model.intention_inferer.intention_prob([ob], [action], irl_model.sess))
             next_obs.append(ob)
             frequencies[1] += 1
+            ep_len += 1
+        input()
         while ob[2] > 0.095:
-            # env.render()
+            env.render()
             action = (np.clip(ob[2]-0.095, 0.01, 0.1), 0)
             ob, _, _, _ = env.step(action)
             obs.append(ob)
             actions.append(action)
-            print(irl_model.intention_inferer.intention_prob([ob], [action], irl_model.sess))
+            # print(irl_model.intention_inferer.intention_prob([ob], [action], irl_model.sess))
             next_obs.append(ob)
             frequencies[2] += 1
+            ep_len += 1
+        input()
         while ob[4] > 0.095:
-            # env.render()
-            action = (np.clip(ob[4]-0.095, 0.01, 0.1), ob[5])
+            env.render()
+            action = (np.clip(ob[4]-0.095, 0.01, 0.1), np.clip(ob[5], -0.8, 0.8))
             ob, _, _, _ = env.step(action)
             obs.append(ob)
             actions.append(action)
-            print(irl_model.intention_inferer.intention_prob([ob], [action], irl_model.sess))
+            # print(irl_model.intention_inferer.intention_prob([ob], [action], irl_model.sess))
             next_obs.append(ob)
             frequencies[3] += 1
+            ep_len += 1
+        input()
         obs = obs[:-1]
+        if max_ep_len < ep_len:
+            max_ep_len = ep_len
     print(frequencies/np.sum(frequencies))
+    print(max_ep_len)
     # obs, actions, next_obs = np.array(obs), np.array(actions), np.array(next_obs)
     # import pickle
     # pickle.dump({
@@ -294,7 +310,7 @@ if __name__ == '__main__':
     #     'expert_actions': actions,
     #     'expert_next_obs': next_obs
     # },
-    # open('../data/turtle/intention_expert.pkl', 'wb'))
+    # open('data/turtle/intention_expert2.pkl', 'wb'))
 
     # command = getch()
     # if command == 'q':

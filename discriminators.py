@@ -292,7 +292,7 @@ class StandardDiscriminator:
         ob_dim,
         action_dim,
         out_activation=None,
-        hidden_dims=[64, 64],
+        hidden_dims=[64, 64, 64],
         hidden_activation=tf.nn.elu,
         weight_init=tf.contrib.layers.xavier_initializer,
         bias_init=tf.zeros_initializer,
@@ -306,7 +306,7 @@ class StandardDiscriminator:
             # expert probability network
             self.prob_network = MLP('prob', ob_dim+action_dim, 2, out_activation=out_activation, hidden_dims=hidden_dims, hidden_activation=hidden_activation, weight_init=weight_init, bias_init=bias_init, in_layer=self.input)
             self.unscaled_probs = self.prob_network.layers['out']
-            self.expert_log_probs = tf.log(tf.nn.softmax(self.unscaled_probs)[:, 1:])
+            self.expert_log_probs = tf.log(tf.nn.softmax(self.unscaled_probs)[:, 1:] + 1e-8)
 
             # training
             self.labels = tf.placeholder(tf.int32, shape=[None], name='labels') # 1 if from expert else 0
@@ -326,7 +326,7 @@ class StandardDiscriminator:
         expert_obs, expert_actions,
         policy_obs, policy_actions,
         policy, global_session,
-        n_iters=100, batch_size=32
+        n_iters=1000, batch_size=32
     ):
         labels = np.ones(100*batch_size)
         mb_obs, mb_actions, _ = sample_minibatch(expert_obs, expert_actions, np.zeros_like(expert_actions), 100*batch_size)
@@ -342,19 +342,150 @@ class StandardDiscriminator:
         )
         for iter_ in range(n_iters):
             r = np.random.rand()
-            if r >= 0.5 and expert_loss >= 0.01:
+            if r >= 0.5:# and expert_loss >= 0.01:
                 labels = np.ones(batch_size)
                 mb_obs, mb_actions, _ = sample_minibatch(expert_obs, expert_actions, np.zeros_like(expert_actions), batch_size)
                 expert_loss, _ = global_session.run(
                     [self.loss, self.train_op],
                     feed_dict={self.obs: mb_obs, self.actions: mb_actions, self.labels: labels}
                 )
-            elif r < 0.5 and policy_loss >= 0.01:
+            elif r < 0.5:# and policy_loss >= 0.01:
                 labels = np.zeros(batch_size)
                 mb_obs, mb_actions, _ = sample_minibatch(policy_obs, policy_actions, np.zeros_like(policy_actions), batch_size)
                 policy_loss, _ = global_session.run(
                     [self.loss, self.train_op],
                     feed_dict={self.obs: mb_obs, self.actions: mb_actions, self.labels: labels}
+                )
+
+        print('discrim loss on expert:', expert_loss)
+        print('discrim loss on policy:', policy_loss)
+
+class IntentionAIRLDiscriminator:
+    def __init__(
+        self,
+        name,
+        ob_dim,
+        n_intentions,
+        out_activation=None,
+        hidden_dims=[64, 64],
+        hidden_activation=tf.nn.elu,
+        weight_init=tf.contrib.layers.xavier_initializer,
+        bias_init=tf.zeros_initializer,
+        discount=0.99,
+        learning_rate=1e-4
+    ):
+        self.n_intentions = n_intentions
+        with tf.variable_scope(name):
+            self.obs = tf.placeholder(tf.float32, shape=[None, ob_dim], name='obs')
+            self.next_obs = tf.placeholder(tf.float32, shape=[None, ob_dim], name='next_obs')
+            # reward network. assumes rewards are functions of state only
+            self.reward_network = MLP('reward', ob_dim, 1, out_activation=out_activation, hidden_dims=hidden_dims, hidden_activation=hidden_activation, weight_init=weight_init, bias_init=bias_init, in_layer=self.obs)
+            self.rewards = self.reward_network.layers['out']
+            # value network
+            self.value_network = MLP('value', ob_dim, 1, out_activation=out_activation, hidden_dims=hidden_dims, hidden_activation=hidden_activation, weight_init=weight_init, bias_init=bias_init, in_layer=self.obs)
+            self.next_value_network = MLP('value', ob_dim, 1, out_activation=out_activation, hidden_dims=hidden_dims, hidden_activation=hidden_activation, weight_init=weight_init, bias_init=bias_init, in_layer=self.next_obs, reuse=True)
+            self.values = self.value_network.layers['out']
+            self.next_values = self.next_value_network.layers['out']
+
+            # estimate p(a | s, expert) as follows:
+            self.expert_action_log_probs = self.rewards + discount*self.next_values - self.values
+
+            self.policy_action_log_probs = tf.placeholder(tf.float32, shape=[None, 1], name='policy_action_log_probs')
+            self.expert_log_probs = self.expert_action_log_probs - tf.reduce_logsumexp(tf.stack((self.expert_action_log_probs, self.policy_action_log_probs)), axis=0)
+
+            # training
+            self.labels = tf.placeholder(tf.float32, shape=[None, 1], name='labels') # 1 if from expert else 0
+            # self.expert_loss = -tf.log(self.expert_probs)
+            # self.policy_loss = -tf.log(1-self.expert_probs)
+            self.loss = -tf.reduce_mean(self.labels*self.expert_log_probs + (1-self.labels)*tf.log(1-tf.exp(self.expert_log_probs)+1e-8))
+            self.train_op = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(self.loss)
+
+    def expert_log_prob(self, obs, next_obs, actions, intention_policy, policy, global_session):
+        policy_intention_probs = global_session.run(
+            intention_policy.probs,
+            feed_dict={intention_policy.obs: obs}
+        )
+        policy_action_probs = np.zeros([obs.shape[0], 1])
+        for intention in range(self.n_intentions):
+            one_hot_intention = np.zeros(self.n_intentions)
+            one_hot_intention[intention] = 1
+            intention_obs = np.concatenate((obs, np.tile(one_hot_intention, [obs.shape[0], 1])), axis=1)
+            action_log_probs = global_session.run(
+                policy.action_log_probs,
+                feed_dict={policy.obs: intention_obs, policy.actions: actions}
+            )
+            action_log_probs = np.expand_dims(action_log_probs, axis=1)
+            policy_action_probs += policy_intention_probs[:, intention:intention+1]*np.exp(action_log_probs)
+        policy_action_log_probs = np.log(policy_action_probs + 1e-8)
+
+        expert_log_probs = global_session.run(
+            self.expert_log_probs,
+            feed_dict={self.obs: obs, self.next_obs: next_obs, self.policy_action_log_probs: policy_action_log_probs}
+        )
+        return expert_log_probs
+
+    def reward(self, obs, global_session):
+        rewards = global_session.run(
+            self.rewards,
+            feed_dict={self.obs: obs}
+        )
+        return rewards
+
+    def train(self,
+        expert_obs, expert_next_obs, expert_actions,
+        policy_obs, policy_next_obs, policy_actions,
+        intention_policy, policy, global_session,
+        n_iters=100, batch_size=32
+    ):
+        policy_intention_probs = global_session.run(
+            intention_policy.probs,
+            feed_dict={intention_policy.obs: policy_obs}
+        )
+        policy_action_probs = np.zeros([policy_obs.shape[0], 1])
+        for intention in range(self.n_intentions):
+            one_hot_intention = np.zeros(self.n_intentions)
+            one_hot_intention[intention] = 1
+            intention_obs = np.concatenate((policy_obs, np.tile(one_hot_intention, [policy_obs.shape[0], 1])), axis=1)
+            action_log_probs = global_session.run(
+                policy.action_log_probs,
+                feed_dict={policy.obs: intention_obs, policy.actions: policy_actions}
+            )
+            action_log_probs = np.expand_dims(action_log_probs, axis=1)
+            policy_action_probs += policy_intention_probs[:, intention:intention+1]*np.exp(action_log_probs)
+        policy_action_log_probs = np.log(policy_action_probs + 1e-8)
+
+        expert_intention_probs = global_session.run(
+            intention_policy.probs,
+            feed_dict={intention_policy.obs: expert_obs}
+        )
+        expert_action_probs = np.zeros([expert_obs.shape[0], 1])
+        for intention in range(self.n_intentions):
+            one_hot_intention = np.zeros(self.n_intentions)
+            one_hot_intention[intention] = 1
+            intention_obs = np.concatenate((expert_obs, np.tile(one_hot_intention, [expert_obs.shape[0], 1])), axis=1)
+            action_log_probs = global_session.run(
+                policy.action_log_probs,
+                feed_dict={policy.obs: intention_obs, policy.actions: expert_actions}
+            )
+            action_log_probs = np.expand_dims(action_log_probs, axis=1)
+            expert_action_probs += expert_intention_probs[:, intention:intention+1]*np.exp(action_log_probs)
+        expert_action_log_probs_under_policy = np.log(expert_action_probs + 1e-8)
+
+        for iter_ in range(n_iters):
+            r = np.random.rand()
+            if r >= 0.5:# and expert_loss >= 0.01:
+                mb_labels = np.ones([batch_size, 1])
+                mb_obs, mb_next_obs, mb_action_log_probs = sample_minibatch(expert_obs, expert_next_obs, expert_action_log_probs_under_policy, batch_size)
+                expert_loss, _ = global_session.run(
+                    [self.loss, self.train_op],
+                    feed_dict={self.obs: mb_obs, self.next_obs: mb_next_obs, self.policy_action_log_probs: mb_action_log_probs, self.labels: mb_labels}
+                )
+            elif r < 0.5:# and policy_loss >= 0.01:
+                mb_labels = np.zeros([batch_size, 1])
+                mb_obs, mb_next_obs, mb_action_log_probs = sample_minibatch(policy_obs, policy_next_obs, policy_action_log_probs, batch_size)
+                policy_loss, _ = global_session.run(
+                    [self.loss, self.train_op],
+                    feed_dict={self.obs: mb_obs, self.next_obs: mb_next_obs, self.policy_action_log_probs: mb_action_log_probs, self.labels: mb_labels}
                 )
 
         print('discrim loss on expert:', expert_loss)
@@ -368,7 +499,7 @@ class IntentionDiscriminator:
         action_dim,
         n_intentions,
         out_activation=None,
-        hidden_dims=[64],
+        hidden_dims=[64, 64],
         hidden_activation=tf.nn.elu,
         weight_init=tf.contrib.layers.xavier_initializer,
         bias_init=tf.zeros_initializer,

@@ -131,7 +131,7 @@ def train_shairl_expert(
 def train_intention(
     n_iters, n_intentions, save_dir, name, expert_name,
     env_name, make_reward_fn=make_intention_reward_fn,
-    timesteps_per_rollout=2000, ep_max_len=625,
+    timesteps_per_rollout=10000, ep_max_len=1000,
     irl_algo=IntentionGAN, use_checkpoint=False,
 ):
     tf.reset_default_graph()
@@ -146,6 +146,29 @@ def train_intention(
         checkpoint = None
     irl_model = irl_algo(name, env_fn, n_intentions, expert_obs, expert_actions, checkpoint=checkpoint)
     irl_model.train(n_iters, make_reward_fn(irl_model), timesteps_per_rollout, ep_max_len)
+
+    # save model
+    irl_model.saver.save(irl_model.sess, '{}/{}_model'.format(save_dir, name))
+    return irl_model
+
+def train_choice_intention(
+    n_iters, n_intentions, save_dir, name, expert_name,
+    env_name, make_chooser_reward_fn=make_intention_chooser_reward_fn, make_reward_fn=make_intention_reward_fn,
+    timesteps_per_rollout=10000, ep_max_len=1000,
+    irl_algo=IntentionChoiceGAN, use_checkpoint=False,
+):
+    tf.reset_default_graph()
+    env_fn = lambda: gym.make(env_name)
+    data = pickle.load(open('{}/{}.pkl'.format(save_dir, expert_name), 'rb'))
+    expert_obs, expert_next_obs, expert_actions = data['expert_obs'], data['expert_next_obs'], data['expert_actions']
+
+    print('\nTraining IRL...')
+    if use_checkpoint:
+        checkpoint = '{}/{}_model'.format(save_dir, name)
+    else:
+        checkpoint = None
+    irl_model = irl_algo(name, env_fn, n_intentions, expert_obs, expert_next_obs, expert_actions, checkpoint=checkpoint)
+    irl_model.train(n_iters, make_chooser_reward_fn(irl_model), make_reward_fn(irl_model), timesteps_per_rollout, ep_max_len)
 
     # save model
     irl_model.saver.save(irl_model.sess, '{}/{}_model'.format(save_dir, name))
@@ -284,58 +307,39 @@ def visualize_shairl_basis(env_names, irl_dir, irl_name, irl_algo=SHAIRL, basis_
         plt.imshow(basis[:, :, i].T, cmap='gray', origin='lower')
         plt.show()
 
-def test_turtle(env_name, n_intentions, save_dir, irl_name, intentions, irl_algo=IntentionGAN, n_runs=1):
+def test_turtle(env_name, n_intentions, save_dir, irl_name, irl_algo=IntentionChoiceGAN, n_runs=1):
     tf.reset_default_graph()
     env_fn = lambda: gym.make(env_name)
-    irl_model = irl_algo(irl_name, env_fn, n_intentions, None, None, checkpoint='{}/{}_model'.format(save_dir, irl_name))
+    irl_model = irl_algo(irl_name, env_fn, n_intentions, None, None, None, checkpoint='{}/{}_model'.format(save_dir, irl_name))
     env = gym.make(env_name)
     for n in range(n_runs):
         ob = env.reset()
         t = 0
-        one_hot_intention = np.zeros(n_intentions)
-        one_hot_intention[intentions[0]] = 1
-        print(intentions[0])
-        time.sleep(1)
-        while ob[0] > 0.01 and t < 1250:
+        done = False
+        while not done:
             env.render()
+            intention = irl_model.intention_policy.act([ob], irl_model.sess)[0]
+            print('intention', intention)
+            # intention = 3
+            one_hot_intention = np.zeros(n_intentions)
+            one_hot_intention[intention] = 1
             action = irl_model.policy.act([np.concatenate((ob, one_hot_intention))], irl_model.sess)[0]
             ob, reward, done, info = env.step(action)
             t += 1
-        t = 0
-        one_hot_intention = np.zeros(n_intentions)
-        one_hot_intention[intentions[1]] = 1
-        print(intentions[1])
+            print(t)
         time.sleep(1)
-        while ob[2] > 0.095 and t < 250:
-            env.render()
-            action = irl_model.policy.act([np.concatenate((ob, one_hot_intention))], irl_model.sess)[0]
-            ob, reward, done, info = env.step(action)
-            t += 1
-        t = 0
-        one_hot_intention = np.zeros(n_intentions)
-        one_hot_intention[intentions[2]] = 1
-        print(intentions[2])
-        time.sleep(1)
-        while ob[2] > 0.095 and t < 100:
-            env.render()
-            action = irl_model.policy.act([np.concatenate((ob, one_hot_intention))], irl_model.sess)[0]
-            ob, reward, done, info = env.step(action)
-            t += 1
-        # t = 0
-        # one_hot_intention = np.zeros(n_intentions)
-        # one_hot_intention[intentions[3]] = 1
-        # print(intentions[3])
-        # time.sleep(1)
-        # while ob[4] > 0.095 and t < 500:
-        #     env.render()
-        #     action = irl_model.policy.act([np.concatenate((ob, one_hot_intention))], irl_model.sess)[0]
-        #     ob, reward, done, info = env.step(action)
-        #     t += 1
 
 if __name__ == '__main__':
+    for _ in range(10000):
+        train_choice_intention(
+            n_iters=10, n_intentions=4, save_dir='data/turtle', name='intention_choice3', expert_name='intention_expert2',
+            env_name='Turtle-v0', use_checkpoint=True,
+        )
+    # test_turtle(env_name='Turtle-v0', n_intentions=4, save_dir='data/turtle', irl_name='intention_choice3')
+
     # for _ in range(20000):
         # train_intention(n_iters=100, n_intentions=4, save_dir='data/turtle', name='intention2', expert_name='intention_expert', env_name='Turtle-v0', use_checkpoint=True)
-    visualize_intention_policy(env_name='Turtle-v0', n_intentions=4, save_dir='data/turtle', irl_name='intention2', intentions=[0,1,2,3], n_runs=1, ep_max_len=625)
+    # visualize_intention_policy(env_name='Turtle-v0', n_intentions=4, save_dir='data/turtle', irl_name='intention2', intentions=[0,1,2,3], n_runs=1, ep_max_len=1000)
     # test_turtle(env_name='Turtle-v0', n_intentions=4, save_dir='data/turtle', irl_name='intention2', intentions=[2,0,1,1], n_runs=3)
 
     # expert_names = []
@@ -363,7 +367,7 @@ if __name__ == '__main__':
     # for task in np.random.choice(np.arange(16), size=4, replace=False):
     # for task in [5, 12, 15, 7]:
         # print('Task:', task)
-        # train_shairl_expert(n_iters=2500, save_dir='data/pointmass', name='44_{}_learned_expert'.format(task), env_names=env_names, basis_size=3, task=task, use_checkpoint=False, irl_model_name='shairl_44')
+        # train_shairl_expert(n_iters=1000, save_dir='data/pointmass', name='44_{}_learned_expert'.format(task), env_names=env_names, basis_size=3, task=task, use_checkpoint=False, irl_model_name='shairl_44')
         # visualize_expert(env_names[task], 'data/pointmass', '44_{}_learned_expert'.format(task))
     # tf.reset_default_graph()
     # env_fns = [lambda: gym.make(env_name) for env_name in env_names]

@@ -21,7 +21,6 @@ class ClipPPO:
         self.actions = self.policy.actions
         self.action_log_probs = self.policy.action_log_probs
         self.values = self.policy.values
-        self.log_vars = self.policy.log_vars
 
         # clipped policy loss
         self.action_prob_ratio = tf.exp(tf.expand_dims(self.action_log_probs, axis=1) - self.old_action_log_probs)
@@ -48,11 +47,16 @@ class ClipPPO:
         self.train_op = self.optimizer.apply_gradients(self.grads)
 
     def train(self,
-        obs, next_obs, actions, action_log_probs, values, value_targets, advantages,
+        obs, actions, action_log_probs, values, value_targets, advantages,
         global_session,
         n_iters=10, batch_size=64
     ):
         data = [obs, actions, action_log_probs, values, value_targets, advantages]
+        # loss = global_session.run(
+        #     self.surr_policy_loss,
+        #     feed_dict={self.obs: obs, self.actions: actions, self.old_action_log_probs: action_log_probs, self.old_values: values, self.value_targets: value_targets, self.advantages: advantages}
+        # )
+        # print('old loss', loss)
         for iter_ in range(n_iters):
             batched_data = batchify(data, batch_size)
             for minibatch in batched_data:
@@ -63,3 +67,8 @@ class ClipPPO:
                     self.train_op,
                     feed_dict={self.obs: mb_obs, self.actions: mb_actions, self.old_action_log_probs: mb_action_log_probs, self.old_values: mb_values, self.value_targets: mb_value_targets, self.advantages: mb_advantages}
                 )
+        # loss = global_session.run(
+        #     self.surr_policy_loss,
+        #     feed_dict={self.obs: obs, self.actions: actions, self.old_action_log_probs: action_log_probs, self.old_values: values, self.value_targets: value_targets, self.advantages: advantages}
+        # )
+        # print('new loss', loss)
