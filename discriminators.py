@@ -325,7 +325,7 @@ class StandardDiscriminator:
     def train(self,
         expert_obs, expert_actions,
         policy_obs, policy_actions,
-        policy, global_session,
+        global_session,
         n_iters=1000, batch_size=32
     ):
         labels = np.ones(100*batch_size)

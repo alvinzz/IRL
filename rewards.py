@@ -25,16 +25,16 @@ def make_shairl_reward_fns(model, env_reward_weight=0, entropy_weight=0, discrim
 
 def make_intention_reward_fn(model, discriminator_reward_weight=1, intention_weight=7):
     def intention_reward(obs, next_obs, actions, action_log_probs, intentions, values, entropies):
-        expert_log_probs = model.discriminator.expert_log_prob(obs, next_obs, actions, model.intention_policy, model.policy, model.sess)
+        expert_log_probs = model.discriminator.expert_log_prob(obs, actions, model.sess)
         intention_probs = model.intention_inferer.intention_prob(obs, actions, model.sess)
         reward = discriminator_reward_weight*(expert_log_probs-np.log(1-np.exp(expert_log_probs)+1e-8)) \
             + intention_weight*np.log(np.expand_dims(np.choose(intentions, intention_probs.T), axis=1)+1e-8)
         return reward
     return intention_reward
 
-def make_intention_chooser_reward_fn(model, n_intentions=4, diversity_weight=0.25, discriminator_reward_weight=1, commit_weight=3):
+def make_intention_chooser_reward_fn(model, n_intentions=4, diversity_weight=1, discriminator_reward_weight=1, commit_weight=10):
     def intention_chooser_reward(obs, next_obs, actions, action_log_probs, intentions, intention_values, intention_entropies):
-        expert_log_probs = model.discriminator.expert_log_prob(obs, next_obs, actions, model.intention_policy, model.policy, model.sess)
+        expert_log_probs = model.discriminator.expert_log_prob(obs, actions, model.sess)
         print('discrim', np.mean(expert_log_probs-np.log(1-np.exp(expert_log_probs)+1e-8)))
         counts = np.array([np.sum(intentions == intention) for intention in range(n_intentions)])
         frequencies = counts / np.sum(counts)

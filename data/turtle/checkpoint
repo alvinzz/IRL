@@ -1,2 +1,2 @@
-model_checkpoint_path: "intention_choice3_model"
-all_model_checkpoint_paths: "intention_choice3_model"
+model_checkpoint_path: "intention_choice4_model"
+all_model_checkpoint_paths: "intention_choice4_model"

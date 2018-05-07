@@ -332,7 +332,7 @@ def test_turtle(env_name, n_intentions, save_dir, irl_name, irl_algo=IntentionCh
 if __name__ == '__main__':
     for _ in range(10000):
         train_choice_intention(
-            n_iters=10, n_intentions=4, save_dir='data/turtle', name='intention_choice3', expert_name='intention_expert2',
+            n_iters=10, n_intentions=4, save_dir='data/turtle', name='intention_choice4', expert_name='intention_expert2',
             env_name='Turtle-v0', use_checkpoint=True,
         )
     # test_turtle(env_name='Turtle-v0', n_intentions=4, save_dir='data/turtle', irl_name='intention_choice3')
