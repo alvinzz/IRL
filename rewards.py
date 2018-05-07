@@ -32,7 +32,7 @@ def make_intention_reward_fn(model, discriminator_reward_weight=1, intention_wei
         return reward
     return intention_reward
 
-def make_intention_chooser_reward_fn(model, n_intentions=4, diversity_weight=1, discriminator_reward_weight=1, commit_weight=10):
+def make_intention_chooser_reward_fn(model, n_intentions=4, diversity_weight=4, discriminator_reward_weight=1, commit_weight=10):
     def intention_chooser_reward(obs, next_obs, actions, action_log_probs, intentions, intention_values, intention_entropies):
         expert_log_probs = model.discriminator.expert_log_prob(obs, actions, model.sess)
         print('discrim', np.mean(expert_log_probs-np.log(1-np.exp(expert_log_probs)+1e-8)))
