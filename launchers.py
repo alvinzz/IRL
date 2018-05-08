@@ -154,7 +154,7 @@ def train_intention(
 def train_choice_intention(
     n_iters, n_intentions, save_dir, name, expert_name,
     env_name, make_chooser_reward_fn=make_intention_chooser_reward_fn, make_reward_fn=make_intention_reward_fn,
-    timesteps_per_rollout=10000, ep_max_len=1000,
+    timesteps_per_rollout=10000, ep_max_len=2500,
     irl_algo=IntentionChoiceGAN, use_checkpoint=False,
 ):
     tf.reset_default_graph()
@@ -312,30 +312,70 @@ def test_turtle(env_name, n_intentions, save_dir, irl_name, irl_algo=IntentionCh
     env_fn = lambda: gym.make(env_name)
     irl_model = irl_algo(irl_name, env_fn, n_intentions, None, None, None, checkpoint='{}/{}_model'.format(save_dir, irl_name))
     env = gym.make(env_name)
-    for n in range(n_runs):
-        ob = env.reset()
+
+    # env.box = np.array([0.7, 0.4])
+    # env.target = np.array([0.4, 0.7])
+    # env.state = np.array([0,0,0])
+    # env.box_angle = np.pi/5 #np.pi/5
+    # env.start_box_angle = np.arctan2(env.box[1] - env.state[1], env.box[0] - env.state[0])
+    # rewards = np.zeros((20, 20))
+    # for i, x in zip(np.arange(20), np.linspace(0, 1, 20)):
+    #     for j, y in zip(np.arange(20), np.linspace(0, 1, 20)):
+    #         env.state = np.array([x, y, 0])
+    #         env.box = np.array([x-0.2, y])
+    #         rewards[i, j] = irl_model.discriminator.reward(np.array([env._get_obs()]), irl_model.sess)
+    #
+    # print('scale:', np.min(rewards), '(black) to', np.max(rewards), '(white)')
+    # rewards = (rewards - np.min(rewards)) / (np.max(rewards) - np.min(rewards))
+    # im = plt.imshow(rewards.T, cmap='gray', origin='lower')
+    # plt.show()
+
+    for _ in range(n_runs):
+        env.box = np.array([0.7, 0.4])
+        env.target = np.array([0.4, 0.7])
+        env.state = np.array([0,0,0])
+        env.box_angle = np.pi/5 #np.pi/5
+        env.start_box_angle = np.arctan2(env.box[1] - env.state[1], env.box[0] - env.state[0])
+        # ob = env.reset()
+        start = [env.box, env.target, env.state, env.box_angle]
+        # print('starting new trial')
+        ob = env._get_obs()
         t = 0
         done = False
-        while not done:
+        while t < 1000:
             env.render()
-            intention = irl_model.intention_policy.act([ob], irl_model.sess)[0]
-            print('intention', intention)
-            # intention = 3
-            one_hot_intention = np.zeros(n_intentions)
-            one_hot_intention[intention] = 1
-            action = irl_model.policy.act([np.concatenate((ob, one_hot_intention))], irl_model.sess)[0]
+            # sampled intention
+            intention_probs = irl_model.intention_policy.test_probs([ob], irl_model.sess)[0]
+            action = np.zeros(2)
+            for intention in range(n_intentions):
+                one_hot_intention = np.zeros(n_intentions)
+                one_hot_intention[intention] = 1
+                action += intention_probs[intention] \
+                    * irl_model.policy.test_act([np.concatenate((ob, one_hot_intention))], irl_model.sess)[0]
+
+            # # deterministic intention
+            # intention = irl_model.intention_policy.test_act([ob], irl_model.sess)[0]
+            # one_hot_intention = np.zeros(n_intentions)
+            # one_hot_intention[intention] = 1
+            # action = irl_model.policy.test_act([np.concatenate((ob, one_hot_intention))], irl_model.sess)[0]
+
             ob, reward, done, info = env.step(action)
             t += 1
-            print(t)
-        time.sleep(1)
+            # print(t)
+            if np.linalg.norm(env.box - env.target) < 0.06:
+                print(start)
+                break
+        # time.sleep(1)
 
 if __name__ == '__main__':
     # for _ in range(10000):
     #     train_choice_intention(
-    #         n_iters=10, n_intentions=4, save_dir='data/turtle', name='intention_choice4', expert_name='intention_expert2',
+    #         n_iters=10, n_intentions=4, save_dir='data/turtle', name='intention_choice2', expert_name='intention_expert2',
     #         env_name='Turtle-v0', use_checkpoint=True,
     #     )
-    test_turtle(env_name='Turtle-v0', n_intentions=4, save_dir='data/turtle', irl_name='intention_choice4')
+    # 2: [64, 64, 64], [64], [64, 64, 64], [64, 64]
+    # 5: [64, 64, 64],  [64, 64, 64],  [64, 64, 64], [64]
+    test_turtle(env_name='Turtle-v0', n_intentions=4, save_dir='data/turtle', irl_name='intention_choice3')
 
     # for _ in range(20000):
         # train_intention(n_iters=100, n_intentions=4, save_dir='data/turtle', name='intention2', expert_name='intention_expert', env_name='Turtle-v0', use_checkpoint=True)

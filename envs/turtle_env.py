@@ -46,7 +46,7 @@ class TurtleEnv(gym.Env):
         high = np.array([self.max_linear_vel, self.max_angular_vel])
 
         # Range of linear and angular velocities that the turtlebot accepts as input.
-        self.action_space = spaces.Box(low=-high, high=high)
+        self.action_space = spaces.Box(low=np.array([0, -self.max_angular_vel]), high=high)
 
         # Range of coordinates and orientation angles which define the state space.
         # distance to box_face, angle between current orientation and orientation which points at box_face,
@@ -66,7 +66,7 @@ class TurtleEnv(gym.Env):
         x, y, th = self.state # th := theta
 
         dt = self.dt
-        v = np.clip(u[0], -self.max_linear_vel, self.max_linear_vel)
+        v = np.clip(u[0], 0, self.max_linear_vel)
         th_dot = np.clip(u[1], -self.max_angular_vel, self.max_angular_vel)
 
         dx  = v * np.cos(th) * dt
@@ -246,16 +246,16 @@ if __name__ == '__main__':
     actions = []
     next_obs = []
     max_ep_len = 0
-    for iter_ in range(1):
+    for iter_ in range(100):
         print(iter_)
         ob = env.reset()
         obs.append(ob)
         ep_len = 0
-        env.render()
-        input()
+        # env.render()
+        # input()
         # print("Press 'q' to exit...\n")
         while ob[0] > 0.01:
-            env.render()
+            # env.render()
             action = (np.clip(ob[0], 0.01, 0.1), np.clip(ob[1], -0.8, 0.8))
             ob, _, _, _ = env.step(action)
             obs.append(ob)
@@ -264,9 +264,9 @@ if __name__ == '__main__':
             next_obs.append(ob)
             frequencies[0] += 1
             ep_len += 1
-        input()
+        # input()
         while np.abs(ob[3]) > 0.05:
-            env.render()
+            # env.render()
             action = (0, np.clip(ob[3], -0.8, 0.8))
             ob, _, _, _ = env.step(action)
             obs.append(ob)
@@ -275,9 +275,9 @@ if __name__ == '__main__':
             next_obs.append(ob)
             frequencies[1] += 1
             ep_len += 1
-        input()
+        # input()
         while ob[2] > 0.095:
-            env.render()
+            # env.render()
             action = (np.clip(ob[2]-0.095, 0.01, 0.1), 0)
             ob, _, _, _ = env.step(action)
             obs.append(ob)
@@ -286,9 +286,9 @@ if __name__ == '__main__':
             next_obs.append(ob)
             frequencies[2] += 1
             ep_len += 1
-        input()
+        # input()
         while ob[4] > 0.095:
-            env.render()
+            # env.render()
             action = (np.clip(ob[4]-0.095, 0.01, 0.1), np.clip(ob[5], -0.8, 0.8))
             ob, _, _, _ = env.step(action)
             obs.append(ob)
@@ -297,20 +297,20 @@ if __name__ == '__main__':
             next_obs.append(ob)
             frequencies[3] += 1
             ep_len += 1
-        input()
+        # input()
         obs = obs[:-1]
         if max_ep_len < ep_len:
             max_ep_len = ep_len
     print(frequencies/np.sum(frequencies))
     print(max_ep_len)
-    # obs, actions, next_obs = np.array(obs), np.array(actions), np.array(next_obs)
-    # import pickle
-    # pickle.dump({
-    #     'expert_obs': obs,
-    #     'expert_actions': actions,
-    #     'expert_next_obs': next_obs
-    # },
-    # open('data/turtle/intention_expert2.pkl', 'wb'))
+    obs, actions, next_obs = np.array(obs), np.array(actions), np.array(next_obs)
+    import pickle
+    pickle.dump({
+        'expert_obs': obs,
+        'expert_actions': actions,
+        'expert_next_obs': next_obs
+    },
+    open('data/turtle/intention_expert2.pkl', 'wb'))
 
     # command = getch()
     # if command == 'q':

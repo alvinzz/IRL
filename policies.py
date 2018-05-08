@@ -58,6 +58,13 @@ class GaussianMLPPolicy:
         )
         return actions
 
+    def test_act(self, obs, global_session):
+        actions = global_session.run(
+            self.means,
+            feed_dict={self.obs: obs}
+        )
+        return actions
+
     def rollout_data(self, obs, actions, global_session):
         action_log_probs, values, entropies = global_session.run(
             [self.action_log_probs, self.values, self.entropies],
@@ -106,6 +113,20 @@ class CategoricalMLPPolicy:
             feed_dict={self.obs: obs}
         )
         return actions
+
+    def test_act(self, obs, global_session):
+        probs = global_session.run(
+            self.probs,
+            feed_dict={self.obs: obs}
+        )
+        return np.expand_dims(np.argmax(probs), axis=1)
+
+    def test_probs(self, obs, global_session):
+        probs = global_session.run(
+            self.probs,
+            feed_dict={self.obs: obs}
+        )
+        return probs
 
     def rollout_data(self, obs, actions, global_session):
         action_log_probs, values, entropies = global_session.run(
