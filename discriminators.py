@@ -192,7 +192,7 @@ class SHAIRLDiscriminator:
         expert_obs, expert_next_obs, expert_actions,
         policy_obs, policy_next_obs, policy_actions,
         policies, global_session,
-        n_iters=10, batch_size=32,
+        n_iters=10, batch_size=32, min_loss=0.01
     ):
         # expert_obs, etc. = [n_tasks * np.array(size=(#_demos * n_timesteps, ob_dim+1))]
         # the extra ob_dim is time
@@ -220,13 +220,11 @@ class SHAIRLDiscriminator:
 
         # coord descent
         labels = np.concatenate((np.ones((expert_action_log_probs_under_policy.size, 1)), np.zeros((policy_action_log_probs.size, 1))))
-        all_expert_obs, all_policy_obs, all_expert_next_obs, all_policy_next_obs, all_expert_action_log_probs_under_policy, all_policy_action_log_probs = np.reshape(expert_obs, (-1, self.ob_dim+1)), np.reshape(policy_obs, (-1, self.ob_dim+1)), np.reshape(expert_next_obs, (-1, self.ob_dim+1)), np.reshape(policy_next_obs, (-1, self.ob_dim+1)), np.reshape(expert_action_log_probs_under_policy, (-1, 1)), np.reshape(policy_action_log_probs, (-1, 1))
-        all_tasks = np.expand_dims(np.concatenate((np.array([np.tile(task, expert_obs[task].shape[0]) for task in range(self.n_tasks)]).flatten(), np.array([np.tile(task, policy_obs[task].shape[0]) for task in range(self.n_tasks)]).flatten())), axis=1)
         task_labels = [np.concatenate((np.ones((expert_action_log_probs_under_policy[task].size, 1)), np.zeros((policy_action_log_probs[task].size, 1)))) for task in range(self.n_tasks)]
         for iter_ in range(n_iters):
             # optimize w
             last_w_loss = [1e9 for task in range(self.n_tasks)]
-            cur_w_loss = [1e8 for task in range(self.n_tasks)]
+            cur_w_loss = [None for task in range(self.n_tasks)]
             for task in range(self.n_tasks):
                 obs, next_obs, action_log_probs = np.concatenate((expert_obs[task], policy_obs[task])), np.concatenate((expert_next_obs[task], policy_next_obs[task])), np.concatenate((expert_action_log_probs_under_policy[task], policy_action_log_probs[task]))
                 obs, timesteps, next_obs = obs[:, :self.ob_dim], obs[:, self.ob_dim:], next_obs[:, :self.ob_dim]
@@ -236,7 +234,7 @@ class SHAIRLDiscriminator:
                     feed_dict={self.obs: obs, self.next_obs: next_obs, self.policy_action_log_probs: action_log_probs, self.tasks_timesteps: tasks_timesteps, self.labels: task_labels[task]}
                 )
                 i = 0
-                while cur_w_loss[task] < last_w_loss[task] and cur_w_loss[task] > 0.01 and i < 10:
+                while cur_w_loss[task] < last_w_loss[task] and cur_w_loss[task] > min_loss and i < 10:
                     loss, _ = global_session.run(
                         [self.loss, self.w_train_op],
                         feed_dict={self.obs: obs, self.next_obs: next_obs, self.policy_action_log_probs: action_log_probs, self.tasks_timesteps: tasks_timesteps, self.labels: task_labels[task]}
@@ -247,12 +245,14 @@ class SHAIRLDiscriminator:
 
             # optimize f
             last_f_loss = 1e9
-            cur_f_loss = 1e8
-            obs, next_obs, action_log_probs = np.concatenate((all_expert_obs, all_policy_obs)), np.concatenate((all_expert_next_obs, all_policy_next_obs)), np.concatenate((all_expert_action_log_probs_under_policy, all_policy_action_log_probs))
-            obs, timesteps, next_obs = obs[:, :self.ob_dim], obs[:, self.ob_dim:], next_obs[:, :self.ob_dim]
-            tasks_timesteps = np.concatenate((all_tasks, timesteps), axis=1)
+            tasks = np.where(np.array(cur_w_loss) > min_loss)[0]
+            obs, next_obs, action_log_probs, labels, tasks_timesteps = self._process_tasks(tasks, expert_obs, expert_next_obs, expert_action_log_probs_under_policy, policy_obs, policy_next_obs, policy_action_log_probs)
+            cur_f_loss = global_session.run(
+                self.loss,
+                feed_dict={self.obs: obs, self.next_obs: next_obs, self.policy_action_log_probs: action_log_probs, self.tasks_timesteps: tasks_timesteps, self.labels: labels}
+            )
             i = 0
-            while cur_f_loss < last_f_loss and cur_f_loss > 0.01 and i < 100:
+            while cur_f_loss < last_f_loss and cur_f_loss > min_loss and i < 100:
                 loss, _ = global_session.run(
                     [self.loss, self.f_train_op],
                     feed_dict={self.obs: obs, self.next_obs: next_obs, self.policy_action_log_probs: action_log_probs, self.tasks_timesteps: tasks_timesteps, self.labels: labels}
@@ -260,6 +260,22 @@ class SHAIRLDiscriminator:
                 cur_f_loss, last_f_loss = loss, cur_f_loss
                 i += 1
             print('f_loss:', loss)
+
+    def _process_tasks(self,
+        tasks,
+        expert_obs, expert_next_obs, expert_action_log_probs_under_policy,
+        policy_obs, policy_next_obs, policy_action_log_probs
+    ):
+        obs, next_obs, action_log_probs, labels, tasks, timesteps = np.zeros((0, self.ob_dim)), np.zeros((0, self.ob_dim)), np.zeros((0, 1)), np.zeros((0, 1)), np.zeros((0, 1)), np.zeros((0, 1))
+        for task in tasks:
+            obs = np.concantenate((obs, expert_obs[task][:, :self.ob_dim], policy_obs[task][:, :self.ob_dim]))
+            next_obs = np.concatenate((next_obs, expert_next_obs[task][:, :self.ob_dim], policy_next_obs[task][:, :self.ob_dim]))
+            action_log_probs = np.concatenate((action_log_probs, expert_action_log_probs_under_policy[task], policy_action_log_probs[task]))
+            labels = np.concatenate((labels, np.ones(expert_action_log_probs_under_policy.shape), np.zeros(policy_action_log_probs.shape)))
+            tasks = np.concatenate((tasks, np.tile(task, (expert_action_log_probs_under_policy.shape)), np.tile(task, (policy_action_log_probs.shape))))
+            timesteps = np.concatenate((timesteps, expert_obs[task][:, self.ob_dim:], policy_obs[task][:, self.ob_dim:]))
+        tasks_timesteps = np.concatenate((tasks, timesteps), axis=1)
+        return obs, next_obs, action_log_probs, labels, tasks_timesteps
 
 class StandardDiscriminator:
     def __init__(
