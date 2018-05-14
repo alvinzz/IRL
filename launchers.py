@@ -257,7 +257,7 @@ if __name__ == '__main__':
     #         train_expert(n_iters=200, save_dir='data/pointmass', name='expert-{}{}'.format(i, j), env_name='PointMass-v{}{}'.format(i, j), use_checkpoint=False, timesteps_per_rollout=1000, ep_max_len=250, demo_timesteps=1e4)
     #         visualize_expert(env_name='PointMass-v{}{}'.format(i, j), expert_dir='data/pointmass', expert_name='expert-{}{}'.format(i, j))
 
-    train_shairl(n_iters=1500, save_dir='data/pointmass', name='shairl_22_coord', expert_names=expert_names, env_names=env_names, use_checkpoint=True)
+    train_shairl(n_iters=1500, save_dir='data/pointmass', name='shairl_22_coord', expert_names=expert_names, env_names=env_names, use_checkpoint=False)
     # for _ in range(20000):
         # train_shairl(n_iters=1, save_dir='data/pointmass', name='shairl_22_toy', expert_names=expert_names, env_names=env_names, use_checkpoint=True)
     # visualize_shairl_basis(env_names=env_names, irl_dir='data/pointmass', irl_name='shairl_22_coord')

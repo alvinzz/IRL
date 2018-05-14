@@ -101,7 +101,7 @@ class SHAIRLDiscriminator:
         n_timesteps,
         basis_size,
         out_activation=None,
-        hidden_dims=[64, 64, 64],
+        hidden_dims=[64, 64],
         hidden_activation=tf.nn.elu,
         weight_init=tf.contrib.layers.xavier_initializer,
         bias_init=tf.zeros_initializer,
@@ -231,15 +231,19 @@ class SHAIRLDiscriminator:
                 obs, next_obs, action_log_probs = np.concatenate((expert_obs[task], policy_obs[task])), np.concatenate((expert_next_obs[task], policy_next_obs[task])), np.concatenate((expert_action_log_probs_under_policy[task], policy_action_log_probs[task]))
                 obs, timesteps, next_obs = obs[:, :self.ob_dim], obs[:, self.ob_dim:], next_obs[:, :self.ob_dim]
                 tasks_timesteps = np.concatenate((np.tile(task, timesteps.shape), timesteps), axis=1)
+                cur_w_loss[task] = global_session.run(
+                    self.loss,
+                    feed_dict={self.obs: obs, self.next_obs: next_obs, self.policy_action_log_probs: action_log_probs, self.tasks_timesteps: tasks_timesteps, self.labels: task_labels[task]}
+                )
                 i = 0
-                while cur_w_loss[task] < last_w_loss[task] and i < 10:
+                while cur_w_loss[task] < last_w_loss[task] and cur_w_loss[task] > 0.01 and i < 10:
                     loss, _ = global_session.run(
                         [self.loss, self.w_train_op],
                         feed_dict={self.obs: obs, self.next_obs: next_obs, self.policy_action_log_probs: action_log_probs, self.tasks_timesteps: tasks_timesteps, self.labels: task_labels[task]}
                     )
                     cur_w_loss[task], last_w_loss[task] = loss, cur_w_loss[task]
                     i += 1
-                print('Task', task, 'w_loss:', loss)
+                print('Task', task, 'w_loss:', cur_w_loss[task])
 
             # optimize f
             last_f_loss = 1e9
@@ -248,7 +252,7 @@ class SHAIRLDiscriminator:
             obs, timesteps, next_obs = obs[:, :self.ob_dim], obs[:, self.ob_dim:], next_obs[:, :self.ob_dim]
             tasks_timesteps = np.concatenate((all_tasks, timesteps), axis=1)
             i = 0
-            while cur_f_loss < last_f_loss and i < 10:
+            while cur_f_loss < last_f_loss and cur_f_loss > 0.01 and i < 100:
                 loss, _ = global_session.run(
                     [self.loss, self.f_train_op],
                     feed_dict={self.obs: obs, self.next_obs: next_obs, self.policy_action_log_probs: action_log_probs, self.tasks_timesteps: tasks_timesteps, self.labels: labels}

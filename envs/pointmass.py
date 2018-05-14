@@ -2,8 +2,6 @@ import numpy as np
 from gym import utils
 from gym.envs.mujoco import mujoco_env
 
-from rllab.misc import logger
-
 from IRL.envs.dynamic_mjc.mjc_models import pointmass
 
 # target should be in [0, 1, 2, 3]
