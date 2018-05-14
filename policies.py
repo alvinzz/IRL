@@ -35,7 +35,7 @@ class GaussianMLPPolicy:
                 else:
                     self.log_vars = tf.get_variable('log_vars', [1, action_dim], initializer=tf.zeros_initializer())
             else:
-                self.log_vars = tf.get_variable('log_vars', trainable=False, initializer=np.zeros((1, action_dim), dtype=np.float32))
+                self.log_vars = tf.get_variable('log_vars', trainable=False, initializer=tf.zeros_initializer())
 
             self.distribution = DiagGaussian(self.means, self.log_vars)
             self.sampled_actions = self.distribution.sample()

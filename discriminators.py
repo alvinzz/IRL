@@ -9,13 +9,15 @@ class AIRLDiscriminator:
         name,
         ob_dim,
         out_activation=None,
-        hidden_dims=[64, 64],
+        hidden_dims=[64, 64, 64],
         hidden_activation=tf.nn.elu,
         weight_init=tf.contrib.layers.xavier_initializer,
         bias_init=tf.zeros_initializer,
         discount=0.99,
         learning_rate=1e-4
     ):
+        self.last_loss = -np.log(0.5)
+        self.noise_param = 0
         with tf.variable_scope(name):
             self.obs = tf.placeholder(tf.float32, shape=[None, ob_dim], name='obs')
             self.next_obs = tf.placeholder(tf.float32, shape=[None, ob_dim], name='next_obs')

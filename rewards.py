@@ -6,7 +6,7 @@ def make_irl_reward_fn(model, env_reward_weight=0, entropy_weight=0.1, discrimin
         expert_log_probs = model.discriminator.expert_log_prob(obs, next_obs, action_log_probs, model.sess)
         reward = env_reward_weight*env_rewards \
             + entropy_weight*entropies \
-            + discriminator_reward_weight*expert_log_probs
+            + discriminator_reward_weight*(expert_log_probs - np.log(1-np.exp(expert_log_probs)+1e-8))
         return reward
     return irl_reward
 

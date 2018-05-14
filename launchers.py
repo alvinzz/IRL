@@ -178,6 +178,7 @@ def visualize_expert(env_name, expert_dir, expert_name, rl_algo=RL, ep_max_len=1
     tf.reset_default_graph()
     env_fn = lambda: gym.make(env_name)
     expert_model = rl_algo(expert_name, env_fn, checkpoint='{}/{}_model'.format(expert_dir, expert_name))
+
     env = gym.make(env_name)
     for n in range(n_runs):
         obs = env.reset()
