@@ -307,7 +307,7 @@ def visualize_shairl_basis(env_names, irl_dir, irl_name, irl_algo=SHAIRL, basis_
         plt.imshow(basis[:, :, i].T, cmap='gray', origin='lower')
         plt.show()
 
-def test_turtle(env_name, n_intentions, save_dir, irl_name, irl_algo=IntentionChoiceGAN, n_runs=1):
+def test_turtle(env_name, n_intentions, save_dir, irl_name, irl_algo=IntentionChoiceGAN, n_runs=4):
     tf.reset_default_graph()
     env_fn = lambda: gym.make(env_name)
     irl_model = irl_algo(irl_name, env_fn, n_intentions, None, None, None, checkpoint='{}/{}_model'.format(save_dir, irl_name))
@@ -315,6 +315,8 @@ def test_turtle(env_name, n_intentions, save_dir, irl_name, irl_algo=IntentionCh
 
     # env.box = np.array([0.7, 0.4])
     # env.target = np.array([0.4, 0.7])
+    # env.target = np.array([0.7, 0.1]) #bad
+    # env.box = np.array([0.4, 0.6])
     # env.state = np.array([0,0,0])
     # env.box_angle = np.pi/5 #np.pi/5
     # env.start_box_angle = np.arctan2(env.box[1] - env.state[1], env.box[0] - env.state[0])
@@ -323,49 +325,94 @@ def test_turtle(env_name, n_intentions, save_dir, irl_name, irl_algo=IntentionCh
     #     for j, y in zip(np.arange(20), np.linspace(0, 1, 20)):
     #         env.state = np.array([x, y, 0])
     #         env.box = np.array([x-0.2, y])
-    #         rewards[i, j] = irl_model.discriminator.reward(np.array([env._get_obs()]), irl_model.sess)
+    #         # rewards[i, j] = irl_model.discriminator.reward(np.array([env._get_obs()]), irl_model.sess)
+    #         rewards[i, j] = irl_model.intention_policy.test_act([env._get_obs()], irl_model.sess)[0]
     #
     # print('scale:', np.min(rewards), '(black) to', np.max(rewards), '(white)')
     # rewards = (rewards - np.min(rewards)) / (np.max(rewards) - np.min(rewards))
     # im = plt.imshow(rewards.T, cmap='gray', origin='lower')
     # plt.show()
 
-    for _ in range(n_runs):
-        env.box = np.array([0.7, 0.4])
+    data = []
+    for iter_ in range(n_runs):
+        env.box = np.array([0.7, 0.4]) #good
         env.target = np.array([0.4, 0.7])
-        env.state = np.array([0,0,0])
-        env.box_angle = np.pi/5 #np.pi/5
+        # env.target = np.array([0.7, 0.1]) #bad
+        # env.box = np.array([0.4, 0.6])
+        env.state = np.array([0.5,0.5,0])
+        env.box_angle = -np.pi/5 #np.pi/5
         env.start_box_angle = np.arctan2(env.box[1] - env.state[1], env.box[0] - env.state[0])
         # ob = env.reset()
-        start = [env.box, env.target, env.state, env.box_angle]
+        # start = [env.box, env.target, env.state, env.box_angle]
         # print('starting new trial')
         ob = env._get_obs()
         t = 0
         done = False
-        while t < 1000:
+        print(iter_)
+        while t < 50:
             env.render()
-            # sampled intention
-            intention_probs = irl_model.intention_policy.test_probs([ob], irl_model.sess)[0]
-            action = np.zeros(2)
-            for intention in range(n_intentions):
-                one_hot_intention = np.zeros(n_intentions)
-                one_hot_intention[intention] = 1
-                action += intention_probs[intention] \
-                    * irl_model.policy.test_act([np.concatenate((ob, one_hot_intention))], irl_model.sess)[0]
+            if t%10 == 0:
+                im = env.viewer.get_array()
+                plt.imsave('../Pictures/good{}_{}.png'.format(t,iter_), im)
+            # # sampled intention
+            # intention_probs = irl_model.intention_policy.test_probs([ob], irl_model.sess)[0]
+            # action = np.zeros(2)
+            # for intention in range(n_intentions):
+            #     one_hot_intention = np.zeros(n_intentions)
+            #     one_hot_intention[intention] = 1
+            #     action += intention_probs[intention] \
+            #         * irl_model.policy.test_act([np.concatenate((ob, one_hot_intention))], irl_model.sess)[0]
 
-            # # deterministic intention
+            # deterministic intention
             # intention = irl_model.intention_policy.test_act([ob], irl_model.sess)[0]
-            # one_hot_intention = np.zeros(n_intentions)
-            # one_hot_intention[intention] = 1
-            # action = irl_model.policy.test_act([np.concatenate((ob, one_hot_intention))], irl_model.sess)[0]
+            # # data.append([t, intention])
+            # data.append([np.linalg.norm(env.state[:2] - env.box), intention])
+            intention = iter_
+            one_hot_intention = np.zeros(n_intentions)
+            one_hot_intention[intention] = 1
+            action = irl_model.policy.test_act([np.concatenate((ob, one_hot_intention))], irl_model.sess)[0]
 
             ob, reward, done, info = env.step(action)
             t += 1
-            # print(t)
-            if np.linalg.norm(env.box - env.target) < 0.06:
-                print(start)
-                break
+            # if np.linalg.norm(env.box - env.target) < 0.03:
+            #     break
+            # if np.linalg.norm(env.state[:2] - env.target) < 0.08:
+            #     im = env.viewer.get_array()
+            #     plt.imsave('../Pictures/good{}.png'.format(t), im)
+            #     print(start)
+            #     break
+        im = env.viewer.get_array()
+        plt.imsave('../Pictures/good{}_{}.png'.format(t,iter_), im)
         # time.sleep(1)
+    # data = np.array(data)
+    #
+    # # intentions = data[:, 1]
+    # # unique, counts = np.unique(intentions, return_counts=True)
+    # # plt.title('Intention Usage')
+    # # plt.xlabel('Intention')
+    # # plt.ylabel('Usage')
+    # # plt.bar(unique, counts/np.sum(counts))
+    # # plt.xticks(unique, unique)
+    # # plt.show()
+    #
+    # counts = np.zeros((5, 4))
+    # min_, max_ = np.min(data[:, 0]), np.max(data[:, 0])
+    # range_ = max_ - min_
+    # for row in data:
+    #     bin_ = 5*(row[0]-min_) // range_
+    #     if bin_ == 5:
+    #         bin_ = 4
+    #     counts[int(bin_)][int(row[1])] += 1
+    # for i in range(5):
+    #     counts[i] /= np.sum(counts[i])
+    # plt.title('Intention Mixture as Function of Turtlebot Distance to Box')
+    # plt.xlabel('Distance')
+    # plt.ylabel('Mixture')
+    # labels = ['Intention ' + str(i) for i in range(4)]
+    # plt.stackplot(np.arange(5), counts[:, 0], counts[:, 1], counts[:, 2], counts[:, 3], labels=labels)
+    # plt.legend(loc=2)
+    # plt.xticks(np.arange(5), ['[{0:.2f}, {1:.2f})'.format(range_/5*i+min_, range_/5*(i+1)+min_) for i in range(5)])
+    # plt.show()
 
 if __name__ == '__main__':
     # for _ in range(10000):
@@ -375,7 +422,7 @@ if __name__ == '__main__':
     #     )
     # 2: [64, 64, 64], [64], [64, 64, 64], [64, 64]
     # 5: [64, 64, 64],  [64, 64, 64],  [64, 64, 64], [64]
-    test_turtle(env_name='Turtle-v0', n_intentions=4, save_dir='data/turtle', irl_name='intention_choice3')
+    test_turtle(env_name='Turtle-v0', n_intentions=4, save_dir='data/turtle', irl_name='intention_choice5')
 
     # for _ in range(20000):
         # train_intention(n_iters=100, n_intentions=4, save_dir='data/turtle', name='intention2', expert_name='intention_expert', env_name='Turtle-v0', use_checkpoint=True)
