@@ -245,8 +245,8 @@ class SHAIRLDiscriminator:
 
             # optimize f
             last_f_loss = 1e9
-            tasks = np.where(np.array(cur_w_loss) > min_loss)[0]
-            obs, next_obs, action_log_probs, labels, tasks_timesteps = self._process_tasks(tasks, expert_obs, expert_next_obs, expert_action_log_probs_under_policy, policy_obs, policy_next_obs, policy_action_log_probs)
+            task_list = np.where(np.array(cur_w_loss) > min_loss)[0].tolist()
+            obs, next_obs, action_log_probs, labels, tasks_timesteps = self._process_tasks(task_list, expert_obs, expert_next_obs, expert_action_log_probs_under_policy, policy_obs, policy_next_obs, policy_action_log_probs)
             cur_f_loss = global_session.run(
                 self.loss,
                 feed_dict={self.obs: obs, self.next_obs: next_obs, self.policy_action_log_probs: action_log_probs, self.tasks_timesteps: tasks_timesteps, self.labels: labels}
@@ -262,19 +262,20 @@ class SHAIRLDiscriminator:
             print('f_loss:', loss)
 
     def _process_tasks(self,
-        tasks,
+        task_list,
         expert_obs, expert_next_obs, expert_action_log_probs_under_policy,
         policy_obs, policy_next_obs, policy_action_log_probs
     ):
         obs, next_obs, action_log_probs, labels, tasks, timesteps = np.zeros((0, self.ob_dim)), np.zeros((0, self.ob_dim)), np.zeros((0, 1)), np.zeros((0, 1)), np.zeros((0, 1)), np.zeros((0, 1))
-        for task in tasks:
-            obs = np.concantenate((obs, expert_obs[task][:, :self.ob_dim], policy_obs[task][:, :self.ob_dim]))
+        for task in task_list:
+            obs = np.concatenate((obs, expert_obs[task][:, :self.ob_dim], policy_obs[task][:, :self.ob_dim]))
             next_obs = np.concatenate((next_obs, expert_next_obs[task][:, :self.ob_dim], policy_next_obs[task][:, :self.ob_dim]))
             action_log_probs = np.concatenate((action_log_probs, expert_action_log_probs_under_policy[task], policy_action_log_probs[task]))
-            labels = np.concatenate((labels, np.ones(expert_action_log_probs_under_policy.shape), np.zeros(policy_action_log_probs.shape)))
-            tasks = np.concatenate((tasks, np.tile(task, (expert_action_log_probs_under_policy.shape)), np.tile(task, (policy_action_log_probs.shape))))
+            labels = np.concatenate((labels, np.ones(expert_action_log_probs_under_policy[task].shape), np.zeros(policy_action_log_probs[task].shape)))
+            tasks = np.concatenate((tasks, np.tile(task, (expert_action_log_probs_under_policy[task].shape)), np.tile(task, (policy_action_log_probs[task].shape))))
             timesteps = np.concatenate((timesteps, expert_obs[task][:, self.ob_dim:], policy_obs[task][:, self.ob_dim:]))
         tasks_timesteps = np.concatenate((tasks, timesteps), axis=1)
+        print(obs.shape)
         return obs, next_obs, action_log_probs, labels, tasks_timesteps
 
 class StandardDiscriminator:
