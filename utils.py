@@ -66,10 +66,5 @@ def collect_pointmass_expert_data():
             obs, next_obs, actions = np.array(obs), np.array(next_obs), np.array(actions)
             pickle.dump({'expert_obs': obs, 'expert_next_obs': next_obs, 'expert_actions': actions}, open('data/pointmass/expert-{}{}.pkl'.format(i, j), 'wb'))
 
-def create_intention_obs(obs, intentions, n_intentions):
-    one_hot_intention = np.zeros((intentions.shape[0], n_intentions))
-    one_hot_intention[np.arange(intentions.shape[0]), intentions] = 1
-    return np.concatenate((obs, one_hot_intention), axis=1)
-
 if __name__ == '__main__':
     collect_pointmass_expert_data()

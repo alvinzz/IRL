@@ -130,18 +130,18 @@ class SHAIRLDiscriminator:
             # self.next_basis = tf.pad(tf.norm(tf.reshape(tf.tile(self.next_obs, [1, 4]), (-1, 4, ob_dim)) - points, axis=2), [[0,0], [0,1]], constant_values=1.)
 
             # w(task, timestep)
-            # self.all_reward_weights = tf.get_variable('reward_weights', [n_tasks, n_timesteps+1, basis_size], initializer=weight_init())
-            # self.all_value_weights = tf.get_variable('value_weights', [n_tasks, n_timesteps+1, basis_size], initializer=weight_init())
+            self.all_reward_weights = tf.get_variable('reward_weights', [n_tasks, n_timesteps+1, basis_size], initializer=weight_init())
+            self.all_value_weights = tf.get_variable('value_weights', [n_tasks, n_timesteps+1, basis_size], initializer=weight_init())
             # toy2
-            self.all_reward_weights = tf.constant(
-                np.stack((
-                    np.concatenate((np.tile([-1,0,-3], [50,1]), np.tile([-1,0,-3], [51,1]))),
-                    np.concatenate((np.tile([-1,0,-3], [50,1]), np.tile([0,-1,-3], [51,1]))),
-                    np.concatenate((np.tile([0,-1,-3], [50,1]), np.tile([-1,0,-3], [51,1]))),
-                    np.concatenate((np.tile([0,-1,-3], [50,1]), np.tile([0,-1,-3], [51,1]))),
-                )),
-            dtype=tf.float32)
-            self.all_value_weights = 12*self.all_reward_weights
+            # self.all_reward_weights = tf.constant(
+            #     np.stack((
+            #         np.concatenate((np.tile([-1,0,-3], [50,1]), np.tile([-1,0,-3], [51,1]))),
+            #         np.concatenate((np.tile([-1,0,-3], [50,1]), np.tile([0,-1,-3], [51,1]))),
+            #         np.concatenate((np.tile([0,-1,-3], [50,1]), np.tile([-1,0,-3], [51,1]))),
+            #         np.concatenate((np.tile([0,-1,-3], [50,1]), np.tile([0,-1,-3], [51,1]))),
+            #     )),
+            # dtype=tf.float32)
+            # self.all_value_weights = 12*self.all_reward_weights
 
             # rewards and values
             self.reward_weights = tf.gather_nd(self.all_reward_weights, self.tasks_timesteps)
@@ -159,10 +159,14 @@ class SHAIRLDiscriminator:
 
             # training
             self.labels = tf.placeholder(tf.float32, shape=[None, 1], name='labels') # 1 if from expert else 0
-            # self.expert_loss = -tf.log(self.expert_probs)
-            # self.policy_loss = -tf.log(1-self.expert_probs)
+            # expert_loss = -log(expert_probs), policy_loss = -log(1-expert_probs)
             self.loss = -tf.reduce_mean(self.labels*self.expert_log_probs + (1-self.labels)*tf.log(1-tf.exp(self.expert_log_probs)+1e-8))
-            self.train_op = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(self.loss)
+            self.w_optimizer = tf.train.AdamOptimizer(learning_rate=100*learning_rate)
+            self.w_grads = self.w_optimizer.compute_gradients(self.loss, [self.all_reward_weights, self.all_value_weights])
+            self.w_train_op = self.w_optimizer.apply_gradients(self.w_grads)
+            self.f_optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
+            self.f_grads = self.f_optimizer.compute_gradients(self.loss, tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=tf.contrib.framework.get_name_scope()+'/basis'))
+            self.f_train_op = self.f_optimizer.apply_gradients(self.f_grads)
 
     def expert_log_prob(self, obs, next_obs, policy_action_log_probs, task, global_session):
         tasks = np.expand_dims(np.tile(task, obs.shape[0]), axis=1)
@@ -188,7 +192,7 @@ class SHAIRLDiscriminator:
         expert_obs, expert_next_obs, expert_actions,
         policy_obs, policy_next_obs, policy_actions,
         policies, global_session,
-        n_iters=100, batch_size=32,
+        n_iters=10, batch_size=32,
     ):
         # expert_obs, etc. = [n_tasks * np.array(size=(#_demos * n_timesteps, ob_dim+1))]
         # the extra ob_dim is time
@@ -214,76 +218,44 @@ class SHAIRLDiscriminator:
             )
         expert_action_log_probs_under_policy = np.expand_dims(expert_action_log_probs_under_policy, axis=2)
 
-        #TODO: coord descent, train on all tasks collectively
-        # evaluate accuracy on current tasks
-        task_losses = np.zeros(self.n_tasks)
-        tasks = np.arange(self.n_tasks)
-        test_batch_size = 10*self.n_timesteps
-        for task in tasks:
-            mb_test_labels = np.concatenate((np.ones((test_batch_size, 1)), np.zeros((test_batch_size, 1))))
-            mb_test_expert_obs, mb_test_expert_next_obs, mb_test_expert_action_log_probs_under_policy = sample_minibatch(expert_obs[task], expert_next_obs[task], expert_action_log_probs_under_policy[task], test_batch_size)
-            mb_test_policy_obs, mb_test_policy_next_obs, mb_test_policy_action_log_probs = sample_minibatch(policy_obs[task], policy_next_obs[task], policy_action_log_probs[task], test_batch_size)
-            mb_test_obs = np.concatenate((mb_test_expert_obs, mb_test_policy_obs))
-            mb_test_next_obs = np.concatenate((mb_test_expert_next_obs, mb_test_policy_next_obs))
-            mb_test_obs, mb_test_tasks_timesteps, mb_test_next_obs = mb_test_obs[:, :self.ob_dim], np.concatenate((np.tile(task, (test_batch_size*2, 1)), mb_test_obs[:, self.ob_dim:]), axis=1), mb_test_next_obs[:, :self.ob_dim]
-            mb_test_policy_action_log_probs = np.concatenate((mb_test_expert_action_log_probs_under_policy, mb_test_policy_action_log_probs))
-            task_losses[task] = global_session.run(
-                self.loss,
-                feed_dict={self.obs: mb_test_obs, self.next_obs: mb_test_next_obs, self.policy_action_log_probs: mb_test_policy_action_log_probs, self.tasks_timesteps: mb_test_tasks_timesteps, self.labels: mb_test_labels}
-            )
-        print('Worst task discrim loss', np.max(task_losses), 'task', np.argmax(task_losses))
-        # train on tasks with less than 90% accuracy
-        tasks = list(filter(lambda task: task_losses[task] > -np.log(0.90), np.arange(self.n_tasks)))
-        for _ in range(n_iters):
-            np.random.shuffle(tasks)
-            for task in tasks:
-                mb_labels = np.concatenate((np.ones((batch_size, 1)), np.zeros((batch_size, 1))))
-                mb_expert_obs, mb_expert_next_obs, mb_expert_action_log_probs_under_policy = sample_minibatch(expert_obs[task], expert_next_obs[task], expert_action_log_probs_under_policy[task], batch_size)
-                mb_policy_obs, mb_policy_next_obs, mb_policy_action_log_probs = sample_minibatch(policy_obs[task], policy_next_obs[task], policy_action_log_probs[task], batch_size)
-                mb_obs = np.concatenate((mb_expert_obs, mb_policy_obs))
-                mb_next_obs = np.concatenate((mb_expert_next_obs, mb_policy_next_obs))
-                mb_obs, mb_tasks_timesteps, mb_next_obs = mb_obs[:, :self.ob_dim], np.concatenate((np.tile(task, (batch_size*2, 1)), mb_obs[:, self.ob_dim:]), axis=1), mb_next_obs[:, :self.ob_dim]
-                mb_policy_action_log_probs = np.concatenate((mb_expert_action_log_probs_under_policy, mb_policy_action_log_probs))
-                global_session.run(
-                    self.train_op,
-                    feed_dict={self.obs: mb_obs, self.next_obs: mb_next_obs, self.policy_action_log_probs: mb_policy_action_log_probs, self.tasks_timesteps: mb_tasks_timesteps, self.labels: mb_labels}
-                )
-        # train each task until it gets >55% accuracy, repeat if not all >55% by the end
-        while np.max(task_losses) > -np.log(0.55):
-            tasks = np.arange(self.n_tasks)
-            # tasks = list(sorted(tasks, key=lambda task: task_losses[task]))
-            np.random.shuffle(tasks)
-            for task in tasks:
-                task_loss = task_losses[task]
-                while task_loss > -np.log(0.55):
-                    mb_labels = np.concatenate((np.ones((batch_size, 1)), np.zeros((batch_size, 1))))
-                    mb_expert_obs, mb_expert_next_obs, mb_expert_action_log_probs_under_policy = sample_minibatch(expert_obs[task], expert_next_obs[task], expert_action_log_probs_under_policy[task], batch_size)
-                    mb_policy_obs, mb_policy_next_obs, mb_policy_action_log_probs = sample_minibatch(policy_obs[task], policy_next_obs[task], policy_action_log_probs[task], batch_size)
-                    mb_obs = np.concatenate((mb_expert_obs, mb_policy_obs))
-                    mb_next_obs = np.concatenate((mb_expert_next_obs, mb_policy_next_obs))
-                    mb_obs, mb_tasks_timesteps, mb_next_obs = mb_obs[:, :self.ob_dim], np.concatenate((np.tile(task, (batch_size*2, 1)), mb_obs[:, self.ob_dim:]), axis=1), mb_next_obs[:, :self.ob_dim]
-                    mb_policy_action_log_probs = np.concatenate((mb_expert_action_log_probs_under_policy, mb_policy_action_log_probs))
-                    mb_task_loss, _ = global_session.run(
-                        [self.loss, self.train_op],
-                        feed_dict={self.obs: mb_obs, self.next_obs: mb_next_obs, self.policy_action_log_probs: mb_policy_action_log_probs, self.tasks_timesteps: mb_tasks_timesteps, self.labels: mb_labels}
+        # coord descent
+        labels = np.concatenate((np.ones((expert_action_log_probs_under_policy.size, 1)), np.zeros((policy_action_log_probs.size, 1))))
+        all_expert_obs, all_policy_obs, all_expert_next_obs, all_policy_next_obs, all_expert_action_log_probs_under_policy, all_policy_action_log_probs = np.reshape(expert_obs, (-1, self.ob_dim+1)), np.reshape(policy_obs, (-1, self.ob_dim+1)), np.reshape(expert_next_obs, (-1, self.ob_dim+1)), np.reshape(policy_next_obs, (-1, self.ob_dim+1)), np.reshape(expert_action_log_probs_under_policy, (-1, 1)), np.reshape(policy_action_log_probs, (-1, 1))
+        all_tasks = np.expand_dims(np.concatenate((np.array([np.tile(task, expert_obs[task].shape[0]) for task in range(self.n_tasks)]).flatten(), np.array([np.tile(task, policy_obs[task].shape[0]) for task in range(self.n_tasks)]).flatten())), axis=1)
+        task_labels = [np.concatenate((np.ones((expert_action_log_probs_under_policy[task].size, 1)), np.zeros((policy_action_log_probs[task].size, 1)))) for task in range(self.n_tasks)]
+        for iter_ in range(n_iters):
+            # optimize w
+            last_w_loss = [1e9 for task in range(self.n_tasks)]
+            cur_w_loss = [1e8 for task in range(self.n_tasks)]
+            for task in range(self.n_tasks):
+                obs, next_obs, action_log_probs = np.concatenate((expert_obs[task], policy_obs[task])), np.concatenate((expert_next_obs[task], policy_next_obs[task])), np.concatenate((expert_action_log_probs_under_policy[task], policy_action_log_probs[task]))
+                obs, timesteps, next_obs = obs[:, :self.ob_dim], obs[:, self.ob_dim:], next_obs[:, :self.ob_dim]
+                tasks_timesteps = np.concatenate((np.tile(task, timesteps.shape), timesteps), axis=1)
+                i = 0
+                while cur_w_loss[task] < last_w_loss[task] and i < 100:
+                    loss, _ = global_session.run(
+                        [self.loss, self.w_train_op],
+                        feed_dict={self.obs: obs, self.next_obs: next_obs, self.policy_action_log_probs: action_log_probs, self.tasks_timesteps: tasks_timesteps, self.labels: task_labels[task]}
                     )
-                    task_loss = 0.6*task_loss + 0.4*mb_task_loss
-            for task in tasks:
-                mb_test_labels = np.concatenate((np.ones((test_batch_size, 1)), np.zeros((test_batch_size, 1))))
-                mb_test_expert_obs, mb_test_expert_next_obs, mb_test_expert_action_log_probs_under_policy = sample_minibatch(expert_obs[task], expert_next_obs[task], expert_action_log_probs_under_policy[task], test_batch_size)
-                mb_test_policy_obs, mb_test_policy_next_obs, mb_test_policy_action_log_probs = sample_minibatch(policy_obs[task], policy_next_obs[task], policy_action_log_probs[task], test_batch_size)
-                mb_test_obs = np.concatenate((mb_test_expert_obs, mb_test_policy_obs))
-                mb_test_next_obs = np.concatenate((mb_test_expert_next_obs, mb_test_policy_next_obs))
-                mb_test_obs, mb_test_tasks_timesteps, mb_test_next_obs = mb_test_obs[:, :self.ob_dim], np.concatenate((np.tile(task, (test_batch_size*2, 1)), mb_test_obs[:, self.ob_dim:]), axis=1), mb_test_next_obs[:, :self.ob_dim]
-                mb_test_policy_action_log_probs = np.concatenate((mb_test_expert_action_log_probs_under_policy, mb_test_policy_action_log_probs))
-                task_losses[task] = global_session.run(
-                    self.loss,
-                    feed_dict={self.obs: mb_test_obs, self.next_obs: mb_test_next_obs, self.policy_action_log_probs: mb_test_policy_action_log_probs, self.tasks_timesteps: mb_test_tasks_timesteps, self.labels: mb_test_labels}
+                    cur_w_loss[task], last_w_loss[task] = loss, cur_w_loss[task]
+                    i += 1
+                print('Task', task, 'w_loss:', loss)
+
+            # optimize f
+            last_f_loss = 1e9
+            cur_f_loss = 1e8
+            obs, next_obs, action_log_probs = np.concatenate((all_expert_obs, all_policy_obs)), np.concatenate((all_expert_next_obs, all_policy_next_obs)), np.concatenate((all_expert_action_log_probs_under_policy, all_policy_action_log_probs))
+            obs, timesteps, next_obs = obs[:, :self.ob_dim], obs[:, self.ob_dim:], next_obs[:, :self.ob_dim]
+            tasks_timesteps = np.concatenate((all_tasks, timesteps), axis=1)
+            i = 0
+            while cur_f_loss < last_f_loss and i < 100:
+                loss, _ = global_session.run(
+                    [self.loss, self.f_train_op],
+                    feed_dict={self.obs: obs, self.next_obs: next_obs, self.policy_action_log_probs: action_log_probs, self.tasks_timesteps: tasks_timesteps, self.labels: labels}
                 )
-            print('Worst task discrim loss', np.max(task_losses), 'task', np.argmax(task_losses))
-        for task in range(self.n_tasks):
-            print('Task', task)
-            print('discrim loss:', task_losses[task])
+                cur_f_loss, last_f_loss = loss, cur_f_loss
+                i += 1
+            print('f_loss:', loss)
 
 class StandardDiscriminator:
     def __init__(
@@ -359,51 +331,3 @@ class StandardDiscriminator:
 
         print('discrim loss on expert:', expert_loss)
         print('discrim loss on policy:', policy_loss)
-
-class IntentionDiscriminator:
-    def __init__(
-        self,
-        name,
-        ob_dim,
-        action_dim,
-        n_intentions,
-        out_activation=None,
-        hidden_dims=[64],
-        hidden_activation=tf.nn.elu,
-        weight_init=tf.contrib.layers.xavier_initializer,
-        bias_init=tf.zeros_initializer,
-        discount=0.99,
-        learning_rate=1e-4
-    ):
-        with tf.variable_scope(name):
-            self.obs = tf.placeholder(tf.float32, shape=[None, ob_dim], name='obs')
-            self.actions = tf.placeholder(tf.float32, shape=[None, action_dim], name='actions')
-            self.input = tf.concat((self.obs, self.actions), axis=1)
-            # intention network
-            self.intention_network = MLP('intention', ob_dim+action_dim, n_intentions, out_activation=out_activation, hidden_dims=hidden_dims, hidden_activation=hidden_activation, weight_init=weight_init, bias_init=bias_init, in_layer=self.input)
-            self.unscaled_intention_probs = self.intention_network.layers['out']
-            self.intention_probs = tf.nn.softmax(self.unscaled_intention_probs)
-
-            # training
-            self.labels = tf.placeholder(tf.int32, shape=[None], name='labels')
-            self.loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(labels=self.labels, logits=self.unscaled_intention_probs))
-            self.train_op = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(self.loss)
-
-    def intention_prob(self, obs, actions, global_session):
-        intention_probs = global_session.run(
-            self.intention_probs,
-            feed_dict={self.obs: obs, self.actions: actions}
-        )
-        return intention_probs
-
-    def train(self,
-        obs, actions, intentions, global_session,
-        n_iters=10, batch_size=32
-    ):
-        for iter_ in range(n_iters):
-            mb_obs, mb_actions, mb_intentions = sample_minibatch(obs, actions, intentions, batch_size)
-            loss, _ = global_session.run(
-                [self.loss, self.train_op],
-                feed_dict={self.obs: mb_obs, self.actions: mb_actions, self.labels: mb_intentions}
-            )
-        print('intention loss:', loss)

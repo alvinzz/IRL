@@ -128,29 +128,6 @@ def train_shairl_expert(
     expert_model.saver.save(expert_model.sess, '{}/{}_model'.format(save_dir, name))
     return expert_model
 
-def train_intention(
-    n_iters, n_intentions, save_dir, name, expert_name,
-    env_name, make_reward_fn=make_intention_reward_fn,
-    timesteps_per_rollout=2000, ep_max_len=625,
-    irl_algo=IntentionGAN, use_checkpoint=False,
-):
-    tf.reset_default_graph()
-    env_fn = lambda: gym.make(env_name)
-    data = pickle.load(open('{}/{}.pkl'.format(save_dir, expert_name), 'rb'))
-    expert_obs, expert_actions = data['expert_obs'], data['expert_actions']
-
-    print('\nTraining IRL...')
-    if use_checkpoint:
-        checkpoint = '{}/{}_model'.format(save_dir, name)
-    else:
-        checkpoint = None
-    irl_model = irl_algo(name, env_fn, n_intentions, expert_obs, expert_actions, checkpoint=checkpoint)
-    irl_model.train(n_iters, make_reward_fn(irl_model), timesteps_per_rollout, ep_max_len)
-
-    # save model
-    irl_model.saver.save(irl_model.sess, '{}/{}_model'.format(save_dir, name))
-    return irl_model
-
 def visualize_expert(env_name, expert_dir, expert_name, rl_algo=RL, ep_max_len=100, n_runs=1):
     tf.reset_default_graph()
     env_fn = lambda: gym.make(env_name)
@@ -200,26 +177,6 @@ def visualize_shairl_policy(env_names, tasks, irl_dir, irl_name, irl_algo=SHAIRL
                 env.render()
                 time.sleep(0.02)
                 action = irl_model.policies[task].act([obs], irl_model.sess)[0]
-                obs, reward, done, info = env.step(action)
-                t += 1
-            time.sleep(1)
-
-def visualize_intention_policy(env_name, n_intentions, save_dir, irl_name, intentions, irl_algo=IntentionGAN, ep_max_len=100, n_runs=3):
-    tf.reset_default_graph()
-    env_fn = lambda: gym.make(env_name)
-    irl_model = irl_algo(irl_name, env_fn, n_intentions, None, None, checkpoint='{}/{}_model'.format(save_dir, irl_name))
-    env = gym.make(env_name)
-    for intention in intentions:
-        one_hot_intention = np.zeros(n_intentions)
-        one_hot_intention[intention] = 1
-        for n in range(n_runs):
-            obs = env.reset()
-            done = False
-            t = 0
-            while not done and t < ep_max_len:
-                env.render()
-                time.sleep(0.02)
-                action = irl_model.policy.act([np.concatenate((obs, one_hot_intention))], irl_model.sess)[0]
                 obs, reward, done, info = env.step(action)
                 t += 1
             time.sleep(1)
@@ -285,16 +242,12 @@ def visualize_shairl_basis(env_names, irl_dir, irl_name, irl_algo=SHAIRL, basis_
         plt.show()
 
 if __name__ == '__main__':
-    for _ in range(20000):
-        train_intention(n_iters=1000, n_intentions=4, save_dir='data/turtle', name='intention2', expert_name='intention_expert', env_name='Turtle-v0', use_checkpoint=True)
-    # visualize_intention_policy(env_name='Turtle-v0', n_intentions=4, save_dir='data/turtle', irl_name='intention2', intentions=[0,1,2,3])
-
-    # expert_names = []
-    # env_names = []
-    # for i in range(2):
-    #     for j in range(2):
-    #         expert_names.append('expert-{}{}'.format(i, j))
-    #         env_names.append('PointMass-v{}{}'.format(i, j))
+    expert_names = []
+    env_names = []
+    for i in range(2):
+        for j in range(2):
+            expert_names.append('expert-{}{}'.format(i, j))
+            env_names.append('PointMass-v{}{}'.format(i, j))
 
     #TODO: simple example, coord descent, replay buffer, reward only
 
@@ -304,7 +257,7 @@ if __name__ == '__main__':
     #         train_expert(n_iters=200, save_dir='data/pointmass', name='expert-{}{}'.format(i, j), env_name='PointMass-v{}{}'.format(i, j), use_checkpoint=False, timesteps_per_rollout=1000, ep_max_len=250, demo_timesteps=1e4)
     #         visualize_expert(env_name='PointMass-v{}{}'.format(i, j), expert_dir='data/pointmass', expert_name='expert-{}{}'.format(i, j))
 
-    # train_shairl(n_iters=1, save_dir='data/pointmass', name='shairl_22', expert_names=expert_names, env_names=env_names, use_checkpoint=False)
+    train_shairl(n_iters=1500, save_dir='data/pointmass', name='shairl_22_coord', expert_names=expert_names, env_names=env_names, use_checkpoint=False)
     # for _ in range(20000):
         # train_shairl(n_iters=1, save_dir='data/pointmass', name='shairl_22_toy', expert_names=expert_names, env_names=env_names, use_checkpoint=True)
     # visualize_shairl_basis(env_names=env_names, irl_dir='data/pointmass', irl_name='shairl_22')
