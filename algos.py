@@ -141,5 +141,5 @@ class SHAIRL:
             self.discriminator.train(
                 self.expert_obs, self.expert_next_obs, self.expert_actions,
                 obs_buffer, next_obs_buffer, actions_buffer,
-                self.policies, self.sess,
+                self.policies, self.sess, n_iters=10
             )

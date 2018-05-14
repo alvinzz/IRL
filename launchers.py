@@ -71,7 +71,7 @@ def train_irl(
 def train_shairl(
     n_iters, save_dir, name, expert_names,
     env_names, make_reward_fns=make_shairl_reward_fns,
-    timesteps_per_rollout=1000, ep_len=100,
+    timesteps_per_rollout=200, ep_len=40,
     irl_algo=SHAIRL, basis_size=3, use_checkpoint=False,
 ):
     tf.reset_default_graph()
@@ -249,7 +249,7 @@ if __name__ == '__main__':
             expert_names.append('expert-{}{}'.format(i, j))
             env_names.append('PointMass-v{}{}'.format(i, j))
 
-    #TODO: simple example, coord descent, replay buffer, reward only
+    #TODO: one task, fewer timesteps, reward only
 
     # for i in range(4):
     #     for j in range(4):
@@ -257,20 +257,9 @@ if __name__ == '__main__':
     #         train_expert(n_iters=200, save_dir='data/pointmass', name='expert-{}{}'.format(i, j), env_name='PointMass-v{}{}'.format(i, j), use_checkpoint=False, timesteps_per_rollout=1000, ep_max_len=250, demo_timesteps=1e4)
     #         visualize_expert(env_name='PointMass-v{}{}'.format(i, j), expert_dir='data/pointmass', expert_name='expert-{}{}'.format(i, j))
 
-    train_shairl(n_iters=1500, save_dir='data/pointmass', name='shairl_22_coord', expert_names=expert_names, env_names=env_names, use_checkpoint=False)
+    train_shairl(n_iters=1500, save_dir='data/pointmass', name='shairl_22_coord', expert_names=expert_names, env_names=env_names, use_checkpoint=True)
     # for _ in range(20000):
         # train_shairl(n_iters=1, save_dir='data/pointmass', name='shairl_22_toy', expert_names=expert_names, env_names=env_names, use_checkpoint=True)
-    # visualize_shairl_basis(env_names=env_names, irl_dir='data/pointmass', irl_name='shairl_22')
+    # visualize_shairl_basis(env_names=env_names, irl_dir='data/pointmass', irl_name='shairl_22_coord')
     # visualize_shairl_reward(env_names=env_names, tasks=[0,1,2,3], irl_dir='data/pointmass', irl_name='shairl_22', frame_skip=10)
     # visualize_shairl_policy(env_names=env_names, tasks=[0,1,2,3], irl_dir='data/pointmass', irl_name='shairl_22', n_runs=3)
-
-    # for task in np.random.choice(np.arange(16), size=4, replace=False):
-    # for task in [5, 12, 15, 7]:
-        # print('Task:', task)
-        # train_shairl_expert(n_iters=2500, save_dir='data/pointmass', name='44_{}_learned_expert'.format(task), env_names=env_names, basis_size=3, task=task, use_checkpoint=False, irl_model_name='shairl_44')
-        # visualize_expert(env_names[task], 'data/pointmass', '44_{}_learned_expert'.format(task))
-    # tf.reset_default_graph()
-    # env_fns = [lambda: gym.make(env_name) for env_name in env_names]
-    # irl_model = SHAIRL('shairl_toy', 5, env_fns, 100, None, None, None, checkpoint='data/pointmass/shairl_toy_model')
-    # print(irl_model.sess.run(irl_model.discriminator.all_reward_weights))
-    # print(irl_model.sess.run(irl_model.discriminator.all_value_weights))

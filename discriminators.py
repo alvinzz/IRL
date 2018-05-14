@@ -232,7 +232,7 @@ class SHAIRLDiscriminator:
                 obs, timesteps, next_obs = obs[:, :self.ob_dim], obs[:, self.ob_dim:], next_obs[:, :self.ob_dim]
                 tasks_timesteps = np.concatenate((np.tile(task, timesteps.shape), timesteps), axis=1)
                 i = 0
-                while cur_w_loss[task] < last_w_loss[task] and i < 100:
+                while cur_w_loss[task] < last_w_loss[task] and i < 10:
                     loss, _ = global_session.run(
                         [self.loss, self.w_train_op],
                         feed_dict={self.obs: obs, self.next_obs: next_obs, self.policy_action_log_probs: action_log_probs, self.tasks_timesteps: tasks_timesteps, self.labels: task_labels[task]}
@@ -248,7 +248,7 @@ class SHAIRLDiscriminator:
             obs, timesteps, next_obs = obs[:, :self.ob_dim], obs[:, self.ob_dim:], next_obs[:, :self.ob_dim]
             tasks_timesteps = np.concatenate((all_tasks, timesteps), axis=1)
             i = 0
-            while cur_f_loss < last_f_loss and i < 100:
+            while cur_f_loss < last_f_loss and i < 10:
                 loss, _ = global_session.run(
                     [self.loss, self.f_train_op],
                     feed_dict={self.obs: obs, self.next_obs: next_obs, self.policy_action_log_probs: action_log_probs, self.tasks_timesteps: tasks_timesteps, self.labels: labels}
