@@ -6,7 +6,7 @@ from IRL.envs.dynamic_mjc.mjc_models import pointmass
 
 # target should be in [0, 1, 2, 3]
 class PointMass(mujoco_env.MujocoEnv, utils.EzPickle):
-    def __init__(self, targets=[0], episode_length=100):
+    def __init__(self, targets=[0], episode_length=40):
         utils.EzPickle.__init__(self)
 
         self.max_episode_length = episode_length
