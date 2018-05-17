@@ -252,14 +252,14 @@ class SHAIRLDiscriminator:
                 feed_dict={self.obs: obs, self.next_obs: next_obs, self.policy_action_log_probs: action_log_probs, self.tasks_timesteps: tasks_timesteps, self.labels: labels}
             )
             i = 0
-            while cur_f_loss < last_f_loss and cur_f_loss > min_loss and i < 100:
+            while cur_f_loss < last_f_loss and cur_f_loss > min_loss and i < 10:
                 loss, _ = global_session.run(
                     [self.loss, self.f_train_op],
                     feed_dict={self.obs: obs, self.next_obs: next_obs, self.policy_action_log_probs: action_log_probs, self.tasks_timesteps: tasks_timesteps, self.labels: labels}
                 )
                 cur_f_loss, last_f_loss = loss, cur_f_loss
                 i += 1
-            print('f_loss:', loss)
+            print('f_loss:', cur_f_loss)
 
     def _process_tasks(self,
         task_list,
@@ -275,7 +275,6 @@ class SHAIRLDiscriminator:
             tasks = np.concatenate((tasks, np.tile(task, (expert_action_log_probs_under_policy[task].shape)), np.tile(task, (policy_action_log_probs[task].shape))))
             timesteps = np.concatenate((timesteps, expert_obs[task][:, self.ob_dim:], policy_obs[task][:, self.ob_dim:]))
         tasks_timesteps = np.concatenate((tasks, timesteps), axis=1)
-        print(obs.shape)
         return obs, next_obs, action_log_probs, labels, tasks_timesteps
 
 class StandardDiscriminator:
