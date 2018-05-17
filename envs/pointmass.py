@@ -27,7 +27,7 @@ class PointMass(mujoco_env.MujocoEnv, utils.EzPickle):
         # reward_ctrl = -np.square(a).sum()
         # reward = reward_dist + 0.000 * reward_ctrl
 
-        reward = -np.linalg.norm(targ_v - self.sim.data.get_body_xvelp("particle"), ord=2)
+        reward = -np.linalg.norm(targ_v - self.sim.data.get_body_xvelp("particle"), ord=1)
 
         self.do_simulation(a, self.frame_skip)
         self.episode_length += 1
