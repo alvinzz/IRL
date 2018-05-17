@@ -22,7 +22,7 @@ class PointMass(mujoco_env.MujocoEnv, utils.EzPickle):
         target_num = (self.episode_length * len(self.targets)) // self.max_episode_length
         vec_dist = self.get_body_com("particle") - self.get_body_com("target_{}".format(self.targets[target_num]))
 
-        reward_dist = -np.linalg.norm(vec_dist)  # particle to target
+        reward_dist = -np.linalg.norm(vec_dist)**2  # particle to target
         reward_ctrl = -np.square(a).sum()
         reward = reward_dist + 0.000 * reward_ctrl
 
