@@ -16,7 +16,7 @@ class RL:
             self.ob_dim = env_fn().observation_space.shape[0]
             self.action_dim = env_fn().action_space.shape[0]
 
-            self.policy = GaussianMLPPolicy('policy', self.ob_dim, self.action_dim, hidden_dims=[], learn_vars=False)
+            self.policy = GaussianMLPPolicy('policy', self.ob_dim, self.action_dim, hidden_dims=[64], learn_vars=True)
 
             self.saver = tf.train.Saver()
 
@@ -33,10 +33,10 @@ class RL:
             print('______________')
             print('Iteration', iter_)
             obs, next_obs, actions, action_log_probs, values, value_targets, advantages, rewards = collect_and_process_rollouts(self.env_fn, self.policy, reward_fn, self.sess, batch_timesteps, max_ep_len)
-            var = 0.1 / (iter_ + 1)
-            log_var = np.log(var)
-            assign_op = self.policy.log_vars.assign(np.tile(log_var, [1, self.action_dim]))
-            self.sess.run(assign_op)
+            # var = 0.1 / (iter_ + 1)
+            # log_var = np.log(var)
+            # assign_op = self.policy.log_vars.assign(np.tile(log_var, [1, self.action_dim]))
+            # self.sess.run(assign_op)
             self.policy.optimizer.train(obs, next_obs, actions, action_log_probs, values, value_targets, advantages, self.sess)
 
 class AIRL:
