@@ -126,7 +126,7 @@ class SHAIRL:
                 self.discriminator.train(
                     self.expert_obs, self.expert_next_obs, self.expert_actions,
                     obs_buffer, next_obs_buffer, actions_buffer,
-                    self.policies, self.sess, n_iters=100, min_loss=0.1*(n_iters - iter_)/n_iters
+                    self.policies, self.sess, n_iters=10, min_loss=0, #min_loss=0.1*(n_iters - iter_)/n_iters
                 )
 
             for task in range(self.n_tasks):

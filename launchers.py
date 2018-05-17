@@ -244,8 +244,8 @@ def visualize_shairl_basis(env_names, irl_dir, irl_name, irl_algo=SHAIRL, basis_
 if __name__ == '__main__':
     expert_names = []
     env_names = []
-    for i in range(2):
-        for j in range(2):
+    for i in range(0,1):
+        for j in range(1,2):
             expert_names.append('expert-{}{}'.format(i, j))
             env_names.append('PointMass-v{}{}'.format(i, j))
 
@@ -257,7 +257,7 @@ if __name__ == '__main__':
     #         train_expert(n_iters=200, save_dir='data/pointmass', name='expert-{}{}'.format(i, j), env_name='PointMass-v{}{}'.format(i, j), use_checkpoint=False, timesteps_per_rollout=1000, ep_max_len=250, demo_timesteps=1e4)
     #         visualize_expert(env_name='PointMass-v{}{}'.format(i, j), expert_dir='data/pointmass', expert_name='expert-{}{}'.format(i, j))
 
-    train_shairl(n_iters=2500, save_dir='data/pointmass', name='shairl_22_coord', expert_names=expert_names, env_names=env_names, use_checkpoint=False)
+    train_shairl(basis_size=1, ep_len=40, n_iters=1000, save_dir='data/pointmass', name='shairl_01_toy', expert_names=expert_names, env_names=env_names, use_checkpoint=False)
     # for _ in range(20000):
         # train_shairl(n_iters=1, save_dir='data/pointmass', name='shairl_22_toy', expert_names=expert_names, env_names=env_names, use_checkpoint=True)
     # visualize_shairl_basis(env_names=env_names, irl_dir='data/pointmass', irl_name='shairl_22_coord')
