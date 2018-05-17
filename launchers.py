@@ -257,7 +257,7 @@ if __name__ == '__main__':
     for i in range(0,1):
         for j in range(1,2):
             print('Training', i, j)
-            train_expert(n_iters=250, save_dir='data/pointmass', name='expert-{}{}'.format(i, j), env_name='PointMass-v{}{}'.format(i, j), use_checkpoint=True, timesteps_per_rollout=200, ep_max_len=40, demo_timesteps=200)
+            train_expert(n_iters=500, save_dir='data/pointmass', name='expert-{}{}'.format(i, j), env_name='PointMass-v{}{}'.format(i, j), use_checkpoint=False, timesteps_per_rollout=200, ep_max_len=40, demo_timesteps=200)
             # visualize_expert(env_name='PointMass-v{}{}'.format(i, j), expert_dir='data/pointmass', expert_name='expert-{}{}'.format(i, j))
 
     # train_shairl(basis_size=1, ep_len=40, n_iters=1000, save_dir='data/pointmass', name='shairl_01_toy', expert_names=expert_names, env_names=env_names, use_checkpoint=False)
