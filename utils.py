@@ -51,22 +51,26 @@ def collect_pointmass_expert_data():
             for _ in range(20):
                 obs.append(env.reset())
                 for _ in range(20):
-                    # env.render()
-                    action = 16*(target_dict[i]-obs[-1][:2]) + np.random.normal(size=2)
+                    env.render()
+                    action = [16, 0] #16*(target_dict[i]-obs[-1][:2]) + np.random.normal(size=2)
                     ep_obs, reward, done, info = env.step(action)
+                    print(reward)
                     obs.append(ep_obs)
                     next_obs.append(ep_obs)
                     actions.append(action)
                 for _ in range(20):
-                    # env.render()
-                    action = 16*(target_dict[j]-obs[-1][:2]) + np.random.normal(size=2)
+                    env.render()
+                    action = [0, 16] #16*(target_dict[j]-obs[-1][:2]) + np.random.normal(size=2)
                     ep_obs, reward, done, info = env.step(action)
+                    print(reward)
                     obs.append(ep_obs)
                     next_obs.append(ep_obs)
                     actions.append(action)
                 obs = obs[:-1]
-            obs, next_obs, actions = np.array(obs), np.array(next_obs), np.array(actions)
-            pickle.dump({'expert_obs': obs, 'expert_next_obs': next_obs, 'expert_actions': actions}, open('data/pointmass/expert-{}{}.pkl'.format(i, j), 'wb'))
+                print(obs)
+                time.sleep(10)
+            # obs, next_obs, actions = np.array(obs), np.array(next_obs), np.array(actions)
+            # pickle.dump({'expert_obs': obs, 'expert_next_obs': next_obs, 'expert_actions': actions}, open('data/pointmass/expert-{}{}.pkl'.format(i, j), 'wb'))
 
 if __name__ == '__main__':
     collect_pointmass_expert_data()

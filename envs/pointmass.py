@@ -20,17 +20,20 @@ class PointMass(mujoco_env.MujocoEnv, utils.EzPickle):
 
     def step(self, a):
         target_num = (self.episode_length * len(self.targets)) // self.max_episode_length
-        vec_dist = self.get_body_com("particle") - self.get_body_com("target_{}".format(self.targets[target_num]))
+        # vec_dist = self.get_body_com("particle") - self.get_body_com("target_{}".format(self.targets[target_num]))
+        targ_v = self.get_body_com("target_{}".format(self.targets[target_num]))
 
-        reward_dist = -np.linalg.norm(vec_dist)**2  # particle to target
-        reward_ctrl = -np.square(a).sum()
-        reward = reward_dist + 0.000 * reward_ctrl
+        # reward_dist = -np.linalg.norm(vec_dist)**2  # particle to target
+        # reward_ctrl = -np.square(a).sum()
+        # reward = reward_dist + 0.000 * reward_ctrl
+
+        reward = -np.linalg.norm(targ_v - self.sim.data.get_body_xvelp("particle"), ord=1)
 
         self.do_simulation(a, self.frame_skip)
-        ob = self._get_obs()
         self.episode_length += 1
+        ob = self._get_obs()
         done = self.episode_length >= self.max_episode_length
-        return ob, reward, done, dict(reward_dist=reward_dist, reward_ctrl=reward_ctrl)
+        return ob, reward, done, {}
 
     def viewer_setup(self):
         self.viewer.cam.trackbodyid = -1
@@ -38,7 +41,7 @@ class PointMass(mujoco_env.MujocoEnv, utils.EzPickle):
 
     def reset_model(self):
         qpos = self.init_qpos
-        qvel = self.init_qvel + self.np_random.uniform(size=self.model.nv, low=-0.01, high=0.01)
+        qvel = self.init_qvel #+ self.np_random.uniform(size=self.model.nv, low=-0.01, high=0.01)
         self.set_state(qpos, qvel)
         self.episode_length = 0
         return self._get_obs()
