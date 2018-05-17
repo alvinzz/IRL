@@ -38,7 +38,7 @@ def make_env_reward_fn(model):
         return env_rewards
     return env_reward_fn
 
-def make_ent_env_reward_fn(model, entropy_weight=0.0):
+def make_ent_env_reward_fn(model, entropy_weight=0.1):
     def ent_env_reward_fn(obs, next_obs, actions, action_log_probs, env_rewards, values, entropies):
         return env_rewards + entropy_weight*entropies
     return ent_env_reward_fn
