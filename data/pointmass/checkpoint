@@ -1,2 +1,2 @@
-model_checkpoint_path: "shairl_01_toy_model"
-all_model_checkpoint_paths: "shairl_01_toy_model"
+model_checkpoint_path: "expert-01_model"
+all_model_checkpoint_paths: "expert-01_model"
