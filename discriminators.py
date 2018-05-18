@@ -105,7 +105,7 @@ class SHAIRLDiscriminator:
         hidden_activation=tf.nn.elu,
         weight_init=tf.contrib.layers.xavier_initializer,
         bias_init=tf.zeros_initializer,
-        discount=0.99,
+        discount=0.9,
         learning_rate=1e-4,
     ):
         self.ob_dim = ob_dim
@@ -160,7 +160,8 @@ class SHAIRLDiscriminator:
             # training
             self.labels = tf.placeholder(tf.float32, shape=[None, 1], name='labels') # 1 if from expert else 0
             # expert_loss = -log(expert_probs), policy_loss = -log(1-expert_probs)
-            self.loss = -tf.reduce_mean(self.labels*self.expert_log_probs + (1-self.labels)*tf.log(1-tf.exp(self.expert_log_probs)+1e-8))
+            self.loss = -tf.reduce_mean(self.labels*self.expert_log_probs)/2 \
+                -tf.reduce_mean((1-self.labels)*tf.log(1-tf.exp(self.expert_log_probs)+1e-8))/2
             self.w_optimizer = tf.train.AdamOptimizer(learning_rate=100*learning_rate)
             self.w_grads = self.w_optimizer.compute_gradients(self.loss, [self.all_reward_weights, self.all_value_weights])
             self.w_train_op = self.w_optimizer.apply_gradients(self.w_grads)
