@@ -190,10 +190,10 @@ def visualize_irl_reward(env_name, irl_dir, irl_name, irl_algo=AIRL):
     env_fn = lambda: gym.make(env_name)
     irl_model = irl_algo(irl_name, env_fn, None, None, None, checkpoint='{}/{}_model'.format(irl_dir, irl_name))
 
-    rewards = np.zeros((100, 100))
-    for i, x in zip(np.arange(100), np.linspace(-1.5, 1.5, 20)):
-        for j, y in zip(np.arange(100), np.linspace(-1.5, 1.5, 20)):
-            rewards[i, j] = irl_model.discriminator.reward(np.array([[x, y, 0]]), irl_model.sess)
+    rewards = np.zeros((20, 20))
+    for i, x in zip(np.arange(20), np.linspace(-1.5, 1.5, 20)):
+        for j, y in zip(np.arange(20), np.linspace(-1.5, 1.5, 20)):
+            rewards[i, j] = irl_model.discriminator.reward(np.array([[x, y, 0, 0]]), irl_model.sess)
 
     print('scale:', np.min(rewards), '(black) to', np.max(rewards), '(white)')
     rewards = (rewards - np.min(rewards)) / (np.max(rewards) - np.min(rewards))
@@ -252,6 +252,15 @@ if __name__ == '__main__':
             expert_names.append('expert-{}{}'.format(i, j))
             env_names.append('PointMass-v{}{}'.format(i, j))
 
+    # train_irl(
+    #     n_iters=100, save_dir='data/pointmass', name='airl_01_toy', expert_name='expert-01',
+    #     env_name='PointMass-v01', make_reward_fn=make_irl_reward_fn,
+    #     timesteps_per_rollout=200, ep_max_len=40,
+    #     irl_algo=AIRL, use_checkpoint=True,
+    # )
+    visualize_irl_reward(env_name='PointMass-v01', irl_dir='data/pointmass', irl_name='airl_01_toy', irl_algo=AIRL)
+    visualize_irl_policy(ep_max_len=40, env_name='PointMass-v01', irl_dir='data/pointmass', irl_name='airl_01_toy', irl_algo=AIRL)
+
     #TODO: one task, fewer timesteps, reward only
 
     # for i in range(0,1):
@@ -265,4 +274,4 @@ if __name__ == '__main__':
         # train_shairl(n_iters=1, save_dir='data/pointmass', name='shairl_22_toy', expert_names=expert_names, env_names=env_names, use_checkpoint=True)
     # visualize_shairl_basis(basis_size=1, ep_len=40, env_names=env_names, irl_dir='data/pointmass', irl_name='shairl_01_toy')
     # visualize_shairl_reward(basis_size=1, ep_len=40, env_names=env_names, tasks=[0], irl_dir='data/pointmass', irl_name='shairl_01_toy', frame_skip=1)
-    visualize_shairl_policy(basis_size=1, ep_len=40, env_names=env_names, tasks=[0], irl_dir='data/pointmass', irl_name='shairl_01_toy', n_runs=3)
+    # visualize_shairl_policy(basis_size=1, ep_len=40, env_names=env_names, tasks=[0], irl_dir='data/pointmass', irl_name='shairl_01_toy', n_runs=3)

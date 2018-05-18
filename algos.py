@@ -74,20 +74,25 @@ class AIRL:
         for iter_ in range(n_iters):
             print('______________')
             print('Iteration', iter_)
+            if obs_buffer is not None:
+                self.discriminator.train(
+                    self.expert_obs, self.expert_next_obs, self.expert_actions,
+                    obs_buffer, next_obs_buffer, actions_buffer,
+                    self.policy, self.sess, n_iters=10
+                )
+
             obs, next_obs, actions, action_log_probs, values, value_targets, advantages, rewards = collect_and_process_rollouts(self.env_fn, self.policy, reward_fn, self.sess, batch_timesteps, max_ep_len)
+            i = 0
+            while np.sum(rewards)/batch_timesteps < np.log(0.4) and i < 100:
+                self.policy.optimizer.train(obs, next_obs, actions, action_log_probs, values, value_targets, advantages, self.sess)
+                obs, next_obs, actions, action_log_probs, values, value_targets, advantages, rewards = collect_and_process_rollouts(self.env_fn, self.policy, reward_fn, self.sess, batch_timesteps, max_ep_len)
+                i += 1
 
             if obs_buffer is None:
                 obs_buffer, next_obs_buffer, actions_buffer = obs, next_obs, actions
             else:
                 obs_buffer, next_obs_buffer, actions_buffer = np.concatenate((obs_buffer, obs)), np.concatenate((next_obs_buffer, next_obs)), np.concatenate((actions_buffer, actions))
                 obs_buffer, next_obs_buffer, actions_buffer = obs_buffer[-20*batch_timesteps:], next_obs_buffer[-20*batch_timesteps:], actions_buffer[-20*batch_timesteps:]
-
-            self.policy.optimizer.train(obs, next_obs, actions, action_log_probs, values, value_targets, advantages, self.sess)
-            self.discriminator.train(
-                self.expert_obs, self.expert_next_obs, self.expert_actions,
-                obs_buffer, next_obs_buffer, actions_buffer,
-                self.policy, self.sess
-            )
 
 class SHAIRL:
     def __init__(self,
@@ -152,4 +157,3 @@ class SHAIRL:
                 else:
                     obs_buffer[task], next_obs_buffer[task], actions_buffer[task] = np.concatenate((obs_buffer[task], obs)), np.concatenate((next_obs_buffer[task], next_obs)), np.concatenate((actions_buffer[task], actions))
                     # obs_buffer[task], next_obs_buffer[task], actions_buffer[task] = obs_buffer[task][-20*batch_timesteps:], next_obs_buffer[task][-20*batch_timesteps:], actions_buffer[task][-20*batch_timesteps:]
-
