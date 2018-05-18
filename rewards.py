@@ -22,17 +22,6 @@ def make_shairl_reward_fns(model, env_reward_weight=0, entropy_weight=0, discrim
     reward_fns = [make_shairl_reward_fn(model, task, env_reward_weight, entropy_weight, discriminator_reward_weight) for task in range(model.n_tasks)]
     return reward_fns
 
-def make_intention_reward_fn(model, env_reward_weight=0, entropy_weight=0.1, discriminator_reward_weight=1, intention_weight=7):
-    def intention_reward(obs, intentions, actions, action_log_probs, env_rewards, values, entropies):
-        expert_log_probs = model.discriminator.expert_log_prob(obs, actions, model.sess)
-        intention_probs = model.intention_inferer.intention_prob(obs, actions, model.sess)
-        reward = env_reward_weight*env_rewards \
-            + entropy_weight*entropies \
-            + discriminator_reward_weight*expert_log_probs \
-            + intention_weight*np.log(np.expand_dims(np.choose(intentions, intention_probs.T), axis=1))
-        return reward
-    return intention_reward
-
 def make_env_reward_fn(model):
     def env_reward_fn(obs, next_obs, actions, action_log_probs, env_rewards, values, entropies):
         return env_rewards

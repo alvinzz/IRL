@@ -107,8 +107,8 @@ class SHAIRL:
             self.expert_next_obs = expert_next_obs
             self.expert_actions = expert_actions
 
-            self.policies = [GaussianMLPPolicy('policy{}'.format(task), self.ob_dim+1, self.action_dim, hidden_dims=[64, 64, 64], learn_vars=False) for task in range(self.n_tasks)]
-            self.discriminator = SHAIRLDiscriminator('discriminator', self.ob_dim, self.action_dim, self.n_tasks, self.n_timesteps, basis_size, hidden_dims=[64, 64])
+            self.policies = [GaussianMLPPolicy('policy{}'.format(task), self.ob_dim+1, self.action_dim, hidden_dims=[64, 64, 64], learn_vars=True) for task in range(self.n_tasks)]
+            self.discriminator = SHAIRLDiscriminator('discriminator', self.ob_dim, self.action_dim, self.n_tasks, self.n_timesteps, basis_size, hidden_dims=[128, 64, 64])
 
             self.saver = tf.train.Saver()
 
@@ -136,13 +136,16 @@ class SHAIRL:
             for task in range(self.n_tasks):
                 print('Task', task)
                 obs, next_obs, actions, action_log_probs, values, value_targets, advantages, rewards = collect_and_process_rollouts(self.env_fns[task], self.policies[task], reward_fns[task], self.sess, batch_timesteps, ep_len, shairl_timestep_normalization=True)
-
-                # anneal variance over training
-                var = 1 / (iter_ + 1)
-                log_var = np.log(var)
-                assign_op = self.policies[task].log_vars.assign(np.tile(log_var, [1, self.action_dim]))
-                self.sess.run(assign_op)
-                self.policies[task].optimizer.train(obs, next_obs, actions, action_log_probs, values, value_targets, advantages, self.sess, n_iters=100)
+                i = 0
+                while np.sum(rewards)/batch_timesteps < np.log(0.4) and i < 100:
+                    # # anneal variance over training
+                    # var = 1 / (iter_ + 1)
+                    # log_var = np.log(var)
+                    # assign_op = self.policies[task].log_vars.assign(np.tile(log_var, [1, self.action_dim]))
+                    # self.sess.run(assign_op)
+                    self.policies[task].optimizer.train(obs, next_obs, actions, action_log_probs, values, value_targets, advantages, self.sess, n_iters=10)
+                    obs, next_obs, actions, action_log_probs, values, value_targets, advantages, rewards = collect_and_process_rollouts(self.env_fns[task], self.policies[task], reward_fns[task], self.sess, batch_timesteps, ep_len, shairl_timestep_normalization=True)
+                    i += 1
 
                 if obs_buffer[task] is None:
                     obs_buffer[task], next_obs_buffer[task], actions_buffer[task] = obs, next_obs, actions
