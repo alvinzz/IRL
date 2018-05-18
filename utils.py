@@ -52,7 +52,7 @@ def collect_pointmass_expert_data():
                 obs.append(env.reset())
                 for _ in range(20):
                     # env.render()
-                    action = [16, 0] #16*(target_dict[i]-obs[-1][:2]) + np.random.normal(size=2)
+                    action = 16*(target_dict[i]-obs[-1][:2]) + np.random.normal(size=2)
                     ep_obs, reward, done, info = env.step(action)
                     # print(reward)
                     obs.append(ep_obs)
@@ -60,7 +60,7 @@ def collect_pointmass_expert_data():
                     actions.append(action)
                 for _ in range(20):
                     # env.render()
-                    action = [0, 16] #16*(target_dict[j]-obs[-1][:2]) + np.random.normal(size=2)
+                    action = 16*(target_dict[j]-obs[-1][:2]) + np.random.normal(size=2)
                     ep_obs, reward, done, info = env.step(action)
                     # print(reward)
                     obs.append(ep_obs)
