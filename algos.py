@@ -142,7 +142,7 @@ class SHAIRL:
                 print('Task', task)
                 obs, next_obs, actions, action_log_probs, values, value_targets, advantages, rewards = collect_and_process_rollouts(self.env_fns[task], self.policies[task], reward_fns[task], self.sess, batch_timesteps, ep_len, shairl_timestep_normalization=True)
                 i = 0
-                while np.sum(rewards)/batch_timesteps < np.log(0.4) and i < 100:
+                while np.sum(rewards)/batch_timesteps < np.log(0.4) and i < 25:
                     # # anneal variance over training
                     # var = 1 / (iter_ + 1)
                     # log_var = np.log(var)
