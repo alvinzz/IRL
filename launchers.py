@@ -247,17 +247,17 @@ def visualize_shairl_basis(env_names, irl_dir, irl_name, irl_algo=SHAIRL, basis_
 if __name__ == '__main__':
     expert_names = []
     env_names = []
-    for i in range(0,1):
-        for j in range(1,2):
+    for i in range(4):
+        for j in range(2):
             expert_names.append('expert-{}{}'.format(i, j))
             env_names.append('PointMass-v{}{}'.format(i, j))
 
-    train_irl(
-        n_iters=100, save_dir='data/pointmass', name='airl_01_toy_orig', expert_name='expert-01',
-        env_name='PointMass-v01', make_reward_fn=make_irl_reward_fn,
-        timesteps_per_rollout=200, ep_max_len=40,
-        irl_algo=AIRL, use_checkpoint=False,
-    )
+    # train_irl(
+    #     n_iters=100, save_dir='data/pointmass', name='airl_01_toy_orig', expert_name='expert-01',
+    #     env_name='PointMass-v01', make_reward_fn=make_irl_reward_fn,
+    #     timesteps_per_rollout=200, ep_max_len=40,
+    #     irl_algo=AIRL, use_checkpoint=False,
+    # )
 
     #TODO: one task, fewer timesteps, reward only
 
@@ -267,7 +267,7 @@ if __name__ == '__main__':
     #         train_expert(n_iters=500, save_dir='data/pointmass', name='expert-{}{}'.format(i, j), env_name='PointMass-v{}{}'.format(i, j), use_checkpoint=False, timesteps_per_rollout=200, ep_max_len=40, demo_timesteps=200)
     #         visualize_expert(env_name='PointMass-v{}{}'.format(i, j), expert_dir='data/pointmass', expert_name='expert-{}{}'.format(i, j))
 
-    train_shairl(basis_size=1, ep_len=40, n_iters=250, save_dir='data/pointmass', name='shairl_01_toy_orig', expert_names=expert_names, env_names=env_names, use_checkpoint=False)
+    train_shairl(basis_size=4, ep_len=40, n_iters=100, save_dir='data/pointmass', name='shairl_44', expert_names=expert_names, env_names=env_names, use_checkpoint=False)
     # for _ in range(20000):
         # train_shairl(n_iters=1, save_dir='data/pointmass', name='shairl_22_toy', expert_names=expert_names, env_names=env_names, use_checkpoint=True)
     # visualize_shairl_basis(env_names=env_names, irl_dir='data/pointmass', irl_name='shairl_22_coord')

@@ -44,7 +44,7 @@ def collect_pointmass_expert_data():
         3: np.array([0, -1]),
     }
     for i in range(4):
-        for j in range(4):
+        for j in range(2):
             print(i, j)
             env = gym.make('PointMass-v{}{}'.format(i, j))
             obs, actions, next_obs = [], [], []
@@ -52,7 +52,7 @@ def collect_pointmass_expert_data():
                 obs.append(env.reset())
                 for _ in range(20):
                     # env.render()
-                    action = 16*(target_dict[i]-obs[-1][:2]) + np.random.normal(size=2)
+                    action = 16*target_dict[i] #16*(target_dict[i]-obs[-1][:2]) + np.random.normal(size=2)
                     ep_obs, reward, done, info = env.step(action)
                     # print(reward)
                     obs.append(ep_obs)
@@ -60,7 +60,7 @@ def collect_pointmass_expert_data():
                     actions.append(action)
                 for _ in range(20):
                     # env.render()
-                    action = 16*(target_dict[j]-obs[-1][:2]) + np.random.normal(size=2)
+                    action =16*target_dict[int(i+2*(j-0.5))%4]  #16*(target_dict[j]-obs[-1][:2]) + np.random.normal(size=2)
                     ep_obs, reward, done, info = env.step(action)
                     # print(reward)
                     obs.append(ep_obs)
