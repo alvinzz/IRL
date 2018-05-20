@@ -3,8 +3,7 @@ import numpy as np
 def collect_and_process_rollouts(
     env_fn, policy, reward_fn, global_session,
     n_timesteps=10000, max_ep_len=500,
-    discount=0.99, gae_lambda=0.95,
-    shairl_timestep_normalization=False
+    discount=0.99, gae_lambda=0.95
 ):
     # collect n_timesteps of data from n_envs rollouts in parallel
     obs, next_obs, actions, env_rewards = [], [], [], []
@@ -76,15 +75,7 @@ def collect_and_process_rollouts(
     value_targets, advantages = np.array(value_targets), np.array(advantages)
 
     # can also apply advantage normalization per minibatch
-    if not shairl_timestep_normalization:
-        advantages = (advantages - np.mean(advantages)) / (np.std(advantages) + 1e-8)
-    else:
-        ob_dim = obs.shape[1] - 1
-        timesteps = obs[:, ob_dim]
-        for timestep in np.arange(max_ep_len):
-            timestep_inds = (timesteps == timestep)
-            if np.any(timestep_inds):
-                advantages[timestep_inds] = (advantages[timestep_inds] - np.mean(advantages[timestep_inds])) / (np.std(advantages[timestep_inds]) + 1e-8)
+    advantages = (advantages - np.mean(advantages)) / (np.std(advantages) + 1e-8)
 
     return obs, next_obs, actions, action_log_probs, values, value_targets, advantages, rewards
 

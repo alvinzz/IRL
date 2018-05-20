@@ -140,7 +140,7 @@ class SHAIRL:
 
             for task in range(self.n_tasks):
                 print('Task', task)
-                obs, next_obs, actions, action_log_probs, values, value_targets, advantages, rewards = collect_and_process_rollouts(self.env_fns[task], self.policies[task], reward_fns[task], self.sess, batch_timesteps, ep_len, shairl_timestep_normalization=True)
+                obs, next_obs, actions, action_log_probs, values, value_targets, advantages, rewards = collect_and_process_rollouts(self.env_fns[task], self.policies[task], reward_fns[task], self.sess, batch_timesteps, ep_len)
                 i = 0
                 while np.sum(rewards)/batch_timesteps < np.log(0.4) and i < 50:
                     # # anneal variance over training
@@ -149,7 +149,7 @@ class SHAIRL:
                     # assign_op = self.policies[task].log_vars.assign(np.tile(log_var, [1, self.action_dim]))
                     # self.sess.run(assign_op)
                     self.policies[task].optimizer.train(obs, next_obs, actions, action_log_probs, values, value_targets, advantages, self.sess, n_iters=10)
-                    obs, next_obs, actions, action_log_probs, values, value_targets, advantages, rewards = collect_and_process_rollouts(self.env_fns[task], self.policies[task], reward_fns[task], self.sess, batch_timesteps, ep_len, shairl_timestep_normalization=True)
+                    obs, next_obs, actions, action_log_probs, values, value_targets, advantages, rewards = collect_and_process_rollouts(self.env_fns[task], self.policies[task], reward_fns[task], self.sess, batch_timesteps, ep_len)
                     i += 1
 
                 if obs_buffer[task] is None:

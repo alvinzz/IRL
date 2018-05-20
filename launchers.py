@@ -18,6 +18,34 @@ def train_expert(
     timesteps_per_rollout=10000, ep_max_len=500, demo_timesteps=1e5,
     rl_algo=RL, use_checkpoint=False,
 ):
+    """
+    Trains an expert policy.
+    Args:
+        n_iters: Number of training iterations.
+        save_dir: Local path to directory to save model.
+        name: Name of model to save.
+        env_name: OpenAI Gym name. Register new envs in envs/__init__.py.
+        make_reward_fn: Function that takes in a model as argument and returns
+            a reward function for the policy.
+            For example, make_irl_reward_fn (in rewards.py) uses (an entropy bonus)
+                plus (the discriminator's log-probability of the trajectory
+                coming from the expert) as the reward.
+            The default, make_ent_env_reward_fn, uses (the environment reward)
+                plus (an entropy bonus) as the reward. Should pass in None as
+                the model argument.
+        irl_model_algo: The class of model passed into make_reward_fn.
+            Must be able to call
+            model.discriminator.expert_log_prob(obs, next_obs, action_log_probs, task, model.sess).
+        irl_model_name: The name of the model passed into make_reward_fn.
+        timesteps_per_rollout: Number of timesteps to collect per rollout.
+        ep_max_len: Maximum episode length.
+        demo_timesteps: Number of timesteps to save as expert demonstration after
+            the policy has finished training.
+        rl_algo: The class of the reinforcement learning algorithm to use.
+            Modify algos.py to change policy type, optimizer, architecture, etc.
+        use_checkpoint: Boolean, whether or not to attempt to restore a previous
+            expert policy from which to start training.
+    """
     tf.reset_default_graph()
     env_fn = lambda: gym.make(env_name)
     if use_checkpoint:
@@ -48,6 +76,27 @@ def train_irl(
     timesteps_per_rollout=10000, ep_max_len=500,
     irl_algo=AIRL, use_checkpoint=False,
 ):
+    """
+    Trains an IRL model.
+    Args:
+        n_iters: Number of training iterations.
+        save_dir: Local path to directory to save model.
+        name: Name of model to save.
+        expert_name: Name of expert trajectories file (will attempt to load
+            dictionary containing 'expert_obs, expert_next_obs, expert_actions'
+            from (save_dir + '/' + expert_name + '_model.pkl')).
+        env_name: OpenAI Gym env name. Register new envs in envs/__init__.py.
+        make_reward_fn: Function that takes in a model as argument and returns a
+            reward function for the policy. make_irl_reward_fn (in rewards.py)
+            uses (an entropy bonus) plus (the discriminator's log-probability
+            of the trajectory coming from the expert) as the reward.
+        irl_algo: The class of the IRL algorithm to use. Passed into make_reward_fn.
+            Modify algos.py to change algo hyperparameters.
+        timesteps_per_rollout: Number of timesteps to collect per rollout.
+        ep_max_len: Maximum episode length.
+        use_checkpoint: Boolean, whether or not to attempt to restore a previous
+            expert policy from which to start training.
+    """
     tf.reset_default_graph()
     env_fn = lambda: gym.make(env_name)
     data = pickle.load(open('{}/{}.pkl'.format(save_dir, expert_name), 'rb'))
@@ -74,6 +123,30 @@ def train_shairl(
     timesteps_per_rollout=200, ep_len=40,
     irl_algo=SHAIRL, basis_size=3, use_checkpoint=False,
 ):
+    """
+    Trains an IRL model with linear per-task-per-timestep weights for a shared
+        nonlinear basis.
+    Args:
+        n_iters: Number of training iterations.
+        save_dir: Local path to directory to save model.
+        name: Name of model to save.
+        expert_names: List of names for expert trajectories files (will attempt
+            to load dictionary containing 'expert_obs, expert_next_obs, expert_actions'
+            from (save_dir + '/' + expert_name + '_model.pkl')).
+        env_names: List of OpenAI Gym env names. Register new envs in
+            envs/__init__.py. Should be same length as the expert_names list,
+            with corresponding entries in corresponding positions.
+        make_reward_fns: Function that takes in a model as argument and returns
+            a list of reward functions, one for each of the (env, expert) pairs
+            specified through the expert_names and env_names arguments.
+        irl_algo: The class of the multitask IRL algorithm to use.
+            Passed into make_reward_fns. Modify algos.py to change hyperparameters.
+        timesteps_per_rollout: Number of timesteps to collect per rollout.
+        ep_len: A fixed episode length.
+        basis_size: The size of the shared nonlinear basis.
+        use_checkpoint: Boolean, whether or not to attempt to restore a previous
+            expert policy from which to start training.
+    """
     tf.reset_default_graph()
     env_fns = [lambda: gym.make(env_name) for env_name in env_names]
     expert_obs, expert_next_obs, expert_actions = [], [], []
@@ -107,6 +180,30 @@ def train_shairl_expert(
     timesteps_per_rollout=1000, ep_len=100, demo_timesteps=1e4,
     rl_algo=RL, use_checkpoint=False,
 ):
+    """
+    Trains a forward RL model for a task using the learned reward from a SHAIRL model.
+    Args:
+        n_iters: Number of training iterations.
+        save_dir: Local path to directory to save model.
+        name: Name of model to save.
+        env_names: List of OpenAI Gym env names. Register new envs in
+            envs/__init__.py. Used only to initialize the SHAIRL model, needs
+            only to have the correct length and proper entry for the desired task.
+        task: Index of the task to train the forward RL on.
+        make_reward_fns: Function that takes in a model and task as arguments
+            and returns a reward function.
+        irl_algo: The class of the multitask IRL algorithm to use.
+            Passed into make_reward_fns. Modify algos.py to change hyperparameters.
+        timesteps_per_rollout: Number of timesteps to collect per rollout.
+        ep_len: A fixed episode length.
+        basis_size: The size of the shared nonlinear basis.
+        demo_timesteps: Number of timesteps to save as expert demonstration after
+            the policy has finished training.
+        rl_algo: The class of the reinforcement learning algorithm to use.
+            Modify algos.py to change policy type, optimizer, architecture, etc.
+        use_checkpoint: Boolean, whether or not to attempt to restore a previous
+            expert policy from which to start training.
+    """
     tf.reset_default_graph()
     env_fns = [lambda: gym.make(env_name) for env_name in env_names]
     env_fn = env_fns[task]
@@ -129,6 +226,17 @@ def train_shairl_expert(
     return expert_model
 
 def visualize_expert(env_name, expert_dir, expert_name, rl_algo=RL, ep_max_len=100, n_runs=1):
+    """
+    View a learned forward RL policy.
+    Args:
+        env_name: OpenAI Gym env name.
+        expert_dir: Directory of expert model.
+        expert_name: Name of expert model. Attempts to load
+            expert_dir + '/' + expert_name + '_model' using TensorFlow checkpoint.
+        rl_algo: Class of expert model.
+        ep_max_len: Number of timesteps to show.
+        n_runs: Number of runs to show (for stochastic polcies/envs).
+    """
     tf.reset_default_graph()
     env_fn = lambda: gym.make(env_name)
     expert_model = rl_algo(expert_name, env_fn, checkpoint='{}/{}_model'.format(expert_dir, expert_name))
@@ -150,6 +258,17 @@ def visualize_expert(env_name, expert_dir, expert_name, rl_algo=RL, ep_max_len=1
     print('avg ep reward:', tot_reward / n_runs)
 
 def visualize_irl_policy(env_name, irl_dir, irl_name, irl_algo=AIRL, ep_max_len=100, n_runs=1):
+    """
+    View a learned IRL policy.
+    Args:
+        env_name: OpenAI Gym env name.
+        irl_dir: Directory of IRL model.
+        irl_name: Name of IRL model. Attempts to load
+            irl_dir + '/' + irl_name + '_model' using TensorFlow checkpoint.
+        irl_algo: Class of IRL model.
+        ep_max_len: Number of timesteps to show.
+        n_runs: Number of runs to show (for stochastic polcies/envs).
+    """
     tf.reset_default_graph()
     env_fn = lambda: gym.make(env_name)
     irl_model = irl_algo(irl_name, env_fn, None, None, None, checkpoint='{}/{}_model'.format(irl_dir, irl_name))
@@ -167,6 +286,20 @@ def visualize_irl_policy(env_name, irl_dir, irl_name, irl_algo=AIRL, ep_max_len=
         time.sleep(1)
 
 def visualize_shairl_policy(env_names, tasks, irl_dir, irl_name, irl_algo=SHAIRL, basis_size=3, ep_len=100, n_runs=1):
+    """
+    View a learned SHAIRL policy.
+    Args:
+        env_names: List of OpenAI Gym env names. Used only to initialize the
+            SHAIRL model, needs only to have the correct length and proper
+            entries for the desired tasks.
+        tasks: List of indices of tasks to be shown.
+        irl_dir: Directory of SHAIRL model.
+        irl_name: Name of SHAIRL model. Attempts to load
+            irl_dir + '/' + irl_name + '_model' using TensorFlow checkpoint.
+        basis_size: Size of SHAIRL basis.
+        ep_len: Episode length for the SHAIRL model.
+        n_runs: Number of runs to show (for stochastic polcies/envs).
+    """
     tf.reset_default_graph()
     env_fns = [lambda: gym.make(env_name) for env_name in env_names]
     irl_model = irl_algo(irl_name, basis_size, env_fns, ep_len, None, None, None, checkpoint='{}/{}_model'.format(irl_dir, irl_name))
@@ -186,6 +319,16 @@ def visualize_shairl_policy(env_names, tasks, irl_dir, irl_name, irl_algo=SHAIRL
 
 # works only for 2D envs
 def visualize_irl_reward(env_name, irl_dir, irl_name, irl_algo=AIRL):
+    """
+    View the learned reward of an IRL model. Works only for 2D envs, and will
+    need to be modified for different (x,y) bounds and observation space dims.
+    Args:
+        env_name: OpenAI Gym env name.
+        irl_dir: Directory of IRL model.
+        irl_name: Name of IRL model. Attempts to load
+            irl_dir + '/' + irl_name + '_model' using TensorFlow checkpoint.
+        irl_algo: Class of IRL model.
+    """
     tf.reset_default_graph()
     env_fn = lambda: gym.make(env_name)
     irl_model = irl_algo(irl_name, env_fn, None, None, None, checkpoint='{}/{}_model'.format(irl_dir, irl_name))
@@ -201,6 +344,22 @@ def visualize_irl_reward(env_name, irl_dir, irl_name, irl_algo=AIRL):
     plt.show()
 
 def visualize_shairl_reward(env_names, tasks, irl_dir, irl_name, irl_algo=SHAIRL, basis_size=3, ep_len=100, frame_skip=1):
+    """
+    View the learned reward of SHAIRL. Works only for 2D envs, and will
+    need to be modified for different (x,y) bounds and observation space dims.
+    Args:
+        env_names: List of OpenAI Gym env names. Used only to initialize the
+            SHAIRL model, needs only to have the correct length and proper
+            entries for the desired tasks.
+        tasks: List of indices of tasks to be shown.
+        irl_dir: Directory of SHAIRL model.
+        irl_name: Name of SHAIRL model. Attempts to load
+            irl_dir + '/' + irl_name + '_model' using TensorFlow checkpoint.
+        basis_size: Size of SHAIRL basis.
+        ep_len: Episode length for the SHAIRL model.
+        frame_skip: Speeds up animation by showing only some timestep rewards
+            (one in every frame_skip).
+    """
     tf.reset_default_graph()
     env_fn = lambda: gym.make(env_name)
     env_fns = [lambda: gym.make(env_name) for env_name in env_names]
@@ -225,6 +384,19 @@ def visualize_shairl_reward(env_names, tasks, irl_dir, irl_name, irl_algo=SHAIRL
         plt.show()
 
 def visualize_shairl_basis(env_names, irl_dir, irl_name, irl_algo=SHAIRL, basis_size=3, ep_len=100):
+    """
+    View the learned basis of SHAIRL. Works only for 2D envs, and will
+    need to be modified for different (x,y) bounds and observation space dims.
+    Args:
+        env_names: List of OpenAI Gym env names. Used only to initialize the
+            SHAIRL model, needs only to have the correct length and proper
+            entries for the desired tasks.
+        irl_dir: Directory of SHAIRL model.
+        irl_name: Name of SHAIRL model. Attempts to load
+            irl_dir + '/' + irl_name + '_model' using TensorFlow checkpoint.
+        basis_size: Size of SHAIRL basis.
+        ep_len: Episode length for the SHAIRL model.
+    """
     tf.reset_default_graph()
     env_fn = lambda: gym.make(env_name)
     env_fns = [lambda: gym.make(env_name) for env_name in env_names]
@@ -245,6 +417,7 @@ def visualize_shairl_basis(env_names, irl_dir, irl_name, irl_algo=SHAIRL, basis_
         plt.show()
 
 if __name__ == '__main__':
+    # create list of expert and environment names for SHAIRL
     expert_names = []
     env_names = []
     for i in range(4):
@@ -252,6 +425,16 @@ if __name__ == '__main__':
             expert_names.append('expert-{}{}'.format(i, j))
             env_names.append('PointMass-v{}{}'.format(i, j))
 
+    # RUN UTILS.PY FIRST TO GENERATE EXPERT DEMOS!
+
+    # train expert policies
+    # for i in range(0,1):
+    #     for j in range(1,2):
+    #         print('Training', i, j)
+    #         train_expert(n_iters=500, save_dir='data/pointmass', name='expert-{}{}'.format(i, j), env_name='PointMass-v{}{}'.format(i, j), use_checkpoint=True, timesteps_per_rollout=200, ep_max_len=40, demo_timesteps=200)
+    #         visualize_expert(env_name='PointMass-v{}{}'.format(i, j), expert_dir='data/pointmass', expert_name='expert-{}{}'.format(i, j))
+
+    # train AIRL
     # train_irl(
     #     n_iters=100, save_dir='data/pointmass', name='airl_01_toy', expert_name='expert-01',
     #     env_name='PointMass-v01', make_reward_fn=make_irl_reward_fn,
@@ -261,17 +444,8 @@ if __name__ == '__main__':
     # visualize_irl_reward(env_name='PointMass-v01', irl_dir='data/pointmass', irl_name='airl_01_toy_orig', irl_algo=AIRL)
     # visualize_irl_policy(ep_max_len=40, env_name='PointMass-v01', irl_dir='data/pointmass', irl_name='airl_01_toy_orig', irl_algo=AIRL)
 
-    #TODO: one task, fewer timesteps, reward only
-
-    # for i in range(0,1):
-    #     for j in range(1,2):
-    #         print('Training', i, j)
-    #         train_expert(n_iters=500, save_dir='data/pointmass', name='expert-{}{}'.format(i, j), env_name='PointMass-v{}{}'.format(i, j), use_checkpoint=False, timesteps_per_rollout=200, ep_max_len=40, demo_timesteps=200)
-    #         visualize_expert(env_name='PointMass-v{}{}'.format(i, j), expert_dir='data/pointmass', expert_name='expert-{}{}'.format(i, j))
-
+    # train SHAIRL
     # train_shairl(basis_size=4, ep_len=40, n_iters=100, save_dir='data/pointmass', name='shairl_44_orig', expert_names=expert_names, env_names=env_names, use_checkpoint=True)
-    # for _ in range(20000):
-        # train_shairl(n_iters=1, save_dir='data/pointmass', name='shairl_22_toy', expert_names=expert_names, env_names=env_names, use_checkpoint=True)
     # visualize_shairl_basis(basis_size=4, ep_len=40, env_names=env_names, irl_dir='data/pointmass', irl_name='shairl_44_orig')
-    # visualize_shairl_reward(basis_size=4, ep_len=40, env_names=env_names, tasks=[0,1,2,3,4,5,6,7], irl_dir='data/pointmass', irl_name='shairl_44', frame_skip=1)
-    visualize_shairl_policy(basis_size=4, ep_len=40, env_names=env_names, tasks=[0,1,2,3,4,5,6,7], irl_dir='data/pointmass', irl_name='shairl_44_orig', n_runs=1)
+    # visualize_shairl_reward(basis_size=4, ep_len=40, env_names=env_names, tasks=[0,4,7,12], irl_dir='data/pointmass', irl_name='shairl_44_orig', frame_skip=1)
+    # visualize_shairl_policy(basis_size=4, ep_len=40, env_names=env_names, tasks=[0,4,7,12], irl_dir='data/pointmass', irl_name='shairl_44_orig', n_runs=1)

@@ -20,14 +20,14 @@ class PointMass(mujoco_env.MujocoEnv, utils.EzPickle):
 
     def step(self, a):
         target_num = (self.episode_length * len(self.targets)) // self.max_episode_length
-        # vec_dist = self.get_body_com("particle") - self.get_body_com("target_{}".format(self.targets[target_num]))
-        targ_v = self.get_body_com("target_{}".format(self.targets[target_num]))
 
-        # reward_dist = -np.linalg.norm(vec_dist)**2  # particle to target
-        # reward_ctrl = -np.square(a).sum()
-        # reward = reward_dist + 0.000 * reward_ctrl
+        vec_dist = self.get_body_com("particle") - self.get_body_com("target_{}".format(self.targets[target_num]))
+        reward_dist = -np.linalg.norm(vec_dist)**2  # particle to target
+        reward_ctrl = -np.square(a).sum()
+        reward = reward_dist + 0.000 * reward_ctrl
 
-        reward = -np.linalg.norm(targ_v - self.sim.data.get_body_xvelp("particle"), ord=1)
+        # targ_v = self.get_body_com("target_{}".format(self.targets[target_num]))
+        # reward = -np.linalg.norm(targ_v - self.sim.data.get_body_xvelp("particle"), ord=1)
 
         self.do_simulation(a, self.frame_skip)
         self.episode_length += 1
