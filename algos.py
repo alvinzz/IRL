@@ -112,8 +112,8 @@ class SHAIRL:
             self.expert_next_obs = expert_next_obs
             self.expert_actions = expert_actions
 
-            self.policies = [GaussianMLPPolicy('policy{}'.format(task), self.ob_dim+1, self.action_dim, hidden_dims=[64, 64, 64], learn_vars=True) for task in range(self.n_tasks)]
-            self.discriminator = SHAIRLDiscriminator('discriminator', self.ob_dim, self.action_dim, self.n_tasks, self.n_timesteps, basis_size, hidden_dims=[128, 64, 64])
+            self.policies = [GaussianMLPPolicy('policy{}'.format(task), self.ob_dim+1, self.action_dim, hidden_dims=[64, 64, 64, 64], learn_vars=True) for task in range(self.n_tasks)]
+            self.discriminator = SHAIRLDiscriminator('discriminator', self.ob_dim, self.action_dim, self.n_tasks, self.n_timesteps, basis_size, hidden_dims=[64, 64, 64])
 
             self.saver = tf.train.Saver()
 
@@ -135,14 +135,18 @@ class SHAIRL:
                 self.discriminator.train(
                     self.expert_obs, self.expert_next_obs, self.expert_actions,
                     obs_buffer, next_obs_buffer, actions_buffer,
-                    self.policies, self.sess, n_iters=10, min_loss=0, #min_loss=0.1*(n_iters - iter_)/n_iters
+                    self.policies, self.sess, n_iters=10, min_loss=0.01, #min_loss=0.1*(n_iters - iter_)/n_iters
                 )
 
             for task in range(self.n_tasks):
                 print('Task', task)
                 obs, next_obs, actions, action_log_probs, values, value_targets, advantages, rewards = collect_and_process_rollouts(self.env_fns[task], self.policies[task], reward_fns[task], self.sess, batch_timesteps, ep_len)
+                if obs_buffer[task] is None:
+                    obs_buffer[task], next_obs_buffer[task], actions_buffer[task] = obs, next_obs, actions
+                else:
+                    obs_buffer[task], next_obs_buffer[task], actions_buffer[task] = np.concatenate((obs_buffer[task], obs)), np.concatenate((next_obs_buffer[task], next_obs)), np.concatenate((actions_buffer[task], actions))
                 i = 0
-                while np.sum(rewards)/batch_timesteps < np.log(0.4) and i < 50:
+                while np.sum(rewards)/batch_timesteps < np.log(0.4) and i < 1:
                     # # anneal variance over training
                     # var = 1 / (iter_ + 1)
                     # log_var = np.log(var)
@@ -150,10 +154,5 @@ class SHAIRL:
                     # self.sess.run(assign_op)
                     self.policies[task].optimizer.train(obs, next_obs, actions, action_log_probs, values, value_targets, advantages, self.sess, n_iters=10)
                     obs, next_obs, actions, action_log_probs, values, value_targets, advantages, rewards = collect_and_process_rollouts(self.env_fns[task], self.policies[task], reward_fns[task], self.sess, batch_timesteps, ep_len)
-                    i += 1
-
-                if obs_buffer[task] is None:
-                    obs_buffer[task], next_obs_buffer[task], actions_buffer[task] = obs, next_obs, actions
-                else:
                     obs_buffer[task], next_obs_buffer[task], actions_buffer[task] = np.concatenate((obs_buffer[task], obs)), np.concatenate((next_obs_buffer[task], next_obs)), np.concatenate((actions_buffer[task], actions))
-                    # obs_buffer[task], next_obs_buffer[task], actions_buffer[task] = obs_buffer[task][-20*batch_timesteps:], next_obs_buffer[task][-20*batch_timesteps:], actions_buffer[task][-20*batch_timesteps:]
+                    i += 1
